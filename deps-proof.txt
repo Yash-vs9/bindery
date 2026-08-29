@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 13:05:25Z
+date (UTC): 2026-08-29 13:07:37Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -91,8 +91,8 @@ gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery/src	0.761s
-ok  	bindery/tests	10.426s
+ok  	bindery/src	0.503s
+ok  	bindery/tests	9.648s
 
 --- 8. reproducible build ---
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery ./src

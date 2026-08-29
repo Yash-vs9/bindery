@@ -2,22 +2,39 @@
 
 [![verify](https://github.com/Yash-vs9/bindery/actions/workflows/verify.yml/badge.svg)](https://github.com/Yash-vs9/bindery/actions/workflows/verify.yml)
 
-A folder of Markdown becomes a searchable documentation site with live reload.
-One binary. Zero dependencies.
-
-The badge above is not decoration: it is the dependency proof running on a
-machine neither of us controls, on every push, on Linux, macOS and Windows --
-confirming the manifest is empty, every transitive import is standard library,
-the binary is byte-reproducible, and the full test and fuzz suites pass. Click
-it for the log rather than taking `deps-proof.txt` on trust.
+**VitePress needs Node, npm, and several hundred transitive packages to turn
+text files into other text files. bindery needs none of them** — one static
+binary, empty dependency manifest, and it does more than VitePress does: live
+reload, full-text search, syntax highlighting, mermaid-style diagrams, and PDF
+export, on top of a hand-written CommonMark parser that passes all 652
+examples in the specification's own conformance suite.
 
 ```
 bindery dev ./docs      # localhost:8080, live reload on save
 bindery build ./docs    # -> ./site, static HTML, deploy anywhere
+bindery pdf ./docs      # -> docs.pdf, one document, clickable links
 bindery spec            # CommonMark conformance, reported honestly
 bindery render FILE.md  # one file to stdout (--format html|ansi|json)
-bindery pdf ./docs      # -> docs.pdf, one document, clickable links
 ```
+
+**Zero Dependency Hackathon 2026 — Track F (Open / Wildcard).**
+
+## Why this is a wildcard entry
+
+A documentation site generator is the kind of thing nobody attempts without
+packages. It needs a Markdown parser, YAML front-matter, syntax highlighting, a
+file watcher, a WebSocket for live reload, an HTTP server, and a search index.
+Go's standard library provides exactly one of those seven: the HTTP server.
+
+The other six are the project. `STDLIB.md` records each one, what it replaces,
+and what the substitution cost — **30 substitutions**, several of them for
+packages with tens or hundreds of millions of weekly downloads.
+
+The badge above is not decoration: it is the dependency proof running on a
+machine neither of us controls, on every push, on Linux, macOS and Windows —
+confirming the manifest is empty, every transitive import is standard library,
+the binary is byte-reproducible, and the full test and fuzz suites pass. Click
+it for the log rather than taking `deps-proof.txt` on trust.
 
 ## Conformance
 
@@ -41,22 +58,6 @@ Unicode Consortium's own `CaseFolding.txt` — the code points where full foldin
 disagrees with what `strings.ToLower` already gets right — layered on top of
 the standard library rather than replacing it. See `STDLIB.md` for how it was
 generated and verified.
-
-Doing this today usually means Node, npm, and several hundred transitive
-packages to turn text files into other text files. bindery is one static binary
-with an empty dependency manifest.
-
-**Zero Dependency Hackathon 2026 — Track F (Open / Wildcard).**
-
-## Why this is a wildcard entry
-
-A documentation site generator is the kind of thing nobody attempts without
-packages. It needs a Markdown parser, YAML front-matter, syntax highlighting, a
-file watcher, a WebSocket for live reload, an HTTP server, and a search index.
-Go's standard library provides exactly one of those seven: the HTTP server.
-
-The other six are the project. `STDLIB.md` records each one, what it replaces,
-and what the substitution cost.
 
 ## Build and run
 
