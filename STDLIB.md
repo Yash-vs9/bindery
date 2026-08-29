@@ -656,3 +656,37 @@ than splines, no subgraphs, no styling directives, no sequence or class or Gantt
 diagrams. Self-loops are parsed and not drawn. A fence that does not parse falls
 back to a code block, which is more useful than an error where a picture should
 be.
+
+### Windows console colour
+**Instead of** `golang.org/x/sys/windows` (for `SetConsoleMode`)
+**I used** the standard `syscall` package's own `NewLazyDLL` / `NewProc` /
+`Call`, in `src/term_windows.go`.
+
+A plain `cmd.exe`, and older console hosts generally, do not interpret ANSI
+escape sequences by default: the raw bytes render as literal garbage rather
+than colour, unless a process explicitly asks Windows to turn on VT100
+processing for that console handle. Modern terminals (Windows Terminal, recent
+PowerShell) already have it on; a default `cmd.exe` does not.
+
+The standard library documents its own gap here rather plainly: `syscall`
+exports `GetConsoleMode` directly, but not `SetConsoleMode` — and its doc
+comment for `LazyDLL` says outright, *"use `LazyDLL` in
+`golang.org/x/sys/windows` for a secure way to load system DLLs,"* naming the
+dependency this project does not take. What `syscall` still exports on Windows
+are the primitives `SetConsoleMode` is built from — `NewLazyDLL`, `NewProc`,
+`Call` — which is enough to make the one Win32 call needed (`kernel32.dll`'s
+`SetConsoleMode`, with `ENABLE_VIRTUAL_TERMINAL_PROCESSING`) without leaving
+the standard library.
+
+This is one of two files gated by `//go:build` tags, the other being its
+`!windows` no-op counterpart. Both were compiled and vetted by cross-compiling
+for `windows/amd64` from this development machine — a build succeeding is not
+the same claim as a syscall being correct, since the Win32 API surface cannot
+be exercised without a real Windows console, which is exactly why CI (see
+above) runs the full test suite natively on `windows-latest` rather than
+trusting a cross-compiled artifact on faith.
+
+**Cost:** best-effort and silent on failure, by design. `colorEnabled` has
+already confirmed the destination is a real console before calling this; if
+enabling VT100 processing fails anyway, the worst outcome is escape codes not
+rendering as colour, never corrupted output.

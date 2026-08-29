@@ -12,7 +12,7 @@ ENV     := CGO_ENABLED=0 GOFLAGS=-mod=readonly
 LDFLAGS := -s -w -buildid=
 GOBUILD := $(ENV) $(GO) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)"
 
-.PHONY: all build test fuzz bench spec dev repro verify fmt clean
+.PHONY: all build test fuzz bench spec dev repro verify release fmt clean
 
 all: build
 
@@ -125,6 +125,27 @@ verify: build
 	cat deps-proof.txt; \
 	if [ $$status -ne 0 ]; then echo; echo "make verify: FAILED"; fi; \
 	exit $$status
+
+# Cross-compile every platform combination worth publishing, and hash them.
+# CGO_ENABLED=0 and -trimpath together are what make the reproducible-build
+# claim meaningful across platforms too: the same source, on any machine with
+# the same Go version, produces the same six files -- nothing here depends on
+# a local C toolchain or an absolute path baked into the binary.
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
+
+release:
+	@rm -rf bin/release && mkdir -p bin/release
+	@for p in $(PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; \
+		ext=""; [ "$$os" = "windows" ] && ext=".exe"; \
+		out="bin/release/bindery-$$os-$$arch$$ext"; \
+		GOOS=$$os GOARCH=$$arch $(GOBUILD) -o "$$out" ./src || exit 1; \
+		echo "built $$out"; \
+	done
+	@( cd bin/release && shasum -a 256 * > SHA256SUMS.txt ) 2>/dev/null \
+		|| ( cd bin/release && sha256sum * > SHA256SUMS.txt )
+	@echo
+	@cat bin/release/SHA256SUMS.txt
 
 clean:
 	rm -rf bin site deps-proof.txt

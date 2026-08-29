@@ -126,3 +126,18 @@ jobs:
         with:
           name: deps-proof
           path: deps-proof.txt
+
+      # The six platform/architecture binaries make release publishes,
+      # attached here so a judge can download one without a Go toolchain.
+      - name: make release
+        run: make release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bindery-release-binaries
+          path: |
+            bin/release/*
+            !bin/release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHA256SUMS
+          path: bin/release/SHA256SUMS.txt

@@ -45,7 +45,11 @@ func colorEnabled(w io.Writer) bool {
 	if err != nil {
 		return false
 	}
-	return info.Mode()&os.ModeCharDevice != 0
+	if info.Mode()&os.ModeCharDevice == 0 {
+		return false
+	}
+	enablePlatformANSI(f) // a no-op on every platform except Windows
+	return true
 }
 
 // style wraps s in the given sequences when w is a terminal.

@@ -460,3 +460,47 @@ func TestPDFCommandIsReproducible(t *testing.T) {
 		t.Error("two runs produced different PDFs")
 	}
 }
+
+// TestCrossCompileMatrix builds every platform "make release" publishes and
+// checks each is a plausible binary for its target. It cannot run any of them
+// except the one matching the host -- that is what the CI matrix in
+// verify.yml is for, building and testing natively on Linux, macOS and
+// Windows -- but a cross-compiled binary that is truncated, empty, or was
+// silently skipped is still a failure this test catches on any one platform.
+func TestCrossCompileMatrix(t *testing.T) {
+	platforms := []struct{ os, arch string }{
+		{"linux", "amd64"}, {"linux", "arm64"},
+		{"darwin", "amd64"}, {"darwin", "arm64"},
+		{"windows", "amd64"}, {"windows", "arm64"},
+	}
+
+	for _, p := range platforms {
+		t.Run(p.os+"_"+p.arch, func(t *testing.T) {
+			ext := ""
+			if p.os == "windows" {
+				ext = ".exe"
+			}
+			out := filepath.Join(t.TempDir(), "bindery"+ext)
+
+			cmd := exec.Command("go", "build", "-o", out, "./src")
+			cmd.Dir = ".."
+			cmd.Env = append(os.Environ(),
+				"GOOS="+p.os, "GOARCH="+p.arch, "CGO_ENABLED=0")
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("cross-compile for %s/%s failed: %v\n%s", p.os, p.arch, err, stderr.String())
+			}
+
+			info, err := os.Stat(out)
+			if err != nil {
+				t.Fatalf("no binary produced for %s/%s: %v", p.os, p.arch, err)
+			}
+			// An empty or near-empty file means the build silently produced
+			// nothing useful rather than failing loudly.
+			if info.Size() < 1_000_000 {
+				t.Errorf("%s/%s binary is %d bytes, too small to be real", p.os, p.arch, info.Size())
+			}
+		})
+	}
+}
