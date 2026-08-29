@@ -1,0 +1,18 @@
+# Force LF line endings on checkout, everywhere, regardless of the checking-out
+# machine's git configuration.
+#
+# GitHub's windows-latest runners ship Git preconfigured with core.autocrlf=true,
+# which silently rewrites LF to CRLF in any file Git detects as text -- including
+# inside Go source files, and inside multi-line raw string literals within them.
+# Several files here (theme.go, render_html.go, search.go, among others) embed
+# multi-line backtick-delimited strings whose exact byte content several tests
+# compare against with golden-output string equality. Without this file, the
+# same commit compiles to a subtly different binary on Windows than on Linux or
+# macOS: embedded strings gain a \r before every \n, and any test asserting
+# exact LF-terminated output fails there and only there.
+*.go   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.txt  text eol=lf
+Makefile text eol=lf
