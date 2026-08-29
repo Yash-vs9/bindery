@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -40,7 +41,17 @@ func TestMain(m *testing.M) {
 	}
 	defer os.RemoveAll(dir)
 
-	binary = filepath.Join(dir, "bindery")
+	// Windows requires the .exe extension to execute a file at all --
+	// exec.Command on a path without it fails with "executable file not
+	// found in %PATH%" even though the file exists. This was found by a
+	// full wall of failures on windows-latest in CI, none of them a real
+	// bug in bindery itself: every single test in this package failed
+	// identically, because none of them could launch the binary at all.
+	binaryName := "bindery"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	binary = filepath.Join(dir, binaryName)
 	build := exec.Command("go", "build", "-o", binary, "./src")
 	build.Dir = ".."
 	build.Stderr = os.Stderr
