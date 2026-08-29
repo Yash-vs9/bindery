@@ -1,6 +1,7 @@
 # Build output
 bin/
 site/
+*.pdf
 
 # "go build ./..." drops the executable in the working directory
 /bindery
