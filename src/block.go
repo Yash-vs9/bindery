@@ -168,6 +168,7 @@ type blockParser struct {
 	doc     *Block
 	refs    map[string]linkRef
 	lineNum int
+	tables  bool // GFM tables; off for bare Parse, on for ParseWithOptions
 
 	// unmatched is the deepest container this line still matched, when some
 	// container below it did not. Everything under it must be closed before any
@@ -179,10 +180,11 @@ type blockParser struct {
 
 // parseBlocks runs phase 1 over src and returns the block tree together with
 // the link reference definitions it collected.
-func parseBlocks(src string) *Document {
+func parseBlocks(src string, opts ParseOptions) *Document {
 	p := &blockParser{
-		doc:  &Block{Kind: KindDocument, Line: 1, open: true},
-		refs: map[string]linkRef{},
+		doc:    &Block{Kind: KindDocument, Line: 1, open: true},
+		refs:   map[string]linkRef{},
+		tables: opts.Tables,
 	}
 	src = normalize(src)
 	src = strings.TrimSuffix(src, "\n")
@@ -435,8 +437,37 @@ func (p *blockParser) continueVerbatimLeaf(b *Block, c *cursor) bool {
 		}
 		p.close(b)
 		return false
+
+	case KindTable:
+		if !isTableRowLine(c) {
+			p.close(b)
+			return false
+		}
+		p.appendTableRow(b, c.rest())
+		c.pos = len(c.s)
+		return true
 	}
 	return false
+}
+
+// appendTableRow splits a raw line into cells and appends them as a new row.
+// Rows shorter than the header are padded with empty cells; rows longer than
+// the header have their extra cells discarded -- both per the GFM extension's
+// own rule that only the header row's column count is authoritative.
+func (p *blockParser) appendTableRow(table *Block, raw string) {
+	cells := splitTableRow(raw)
+	width := len(table.Align)
+
+	row := &Block{Kind: KindTableRow, parent: table}
+	for i := 0; i < width; i++ {
+		text := ""
+		if i < len(cells) {
+			text = cells[i]
+		}
+		cell := &Block{Kind: KindTableCell, parent: row, lines: []string{text}}
+		row.Children = append(row.Children, cell)
+	}
+	table.Children = append(table.Children, row)
 }
 
 // isClosingFence reports whether the line at c closes the fence opened by b.
@@ -531,6 +562,51 @@ func (p *blockParser) tryStart(container *Block, c *cursor) (*Block, bool) {
 		b := p.appendChild(container, KindCodeFenced)
 		b.fenceChar, b.fenceLen, b.fenceIndent, b.Info = f.char, f.length, indent, f.info
 		return b, true
+	}
+
+	// GFM table: the last line of an open paragraph, followed by a valid
+	// delimiter row, becomes a table header. Checked before setext so that a
+	// pipe-containing last line is read as a header rather than falling
+	// through -- the two cannot both match the same line in any case, since a
+	// delimiter row (pipes, colons) and a setext underline (bare = or -) accept
+	// disjoint character sets, but checking table first keeps the reading
+	// order matching the order these two features are introduced everywhere
+	// else in this file's comments.
+	if p.tables {
+		if para := openLeafChild(container); para != nil && para.Kind == KindParagraph && len(para.lines) > 0 {
+			before := c.save()
+			if align, ok := scanTableDelimiterRow(c); ok {
+				headerLine := para.lines[len(para.lines)-1]
+				cells := splitTableRow(headerLine)
+				if len(cells) == len(align) {
+					para.lines = para.lines[:len(para.lines)-1]
+
+					var table *Block
+					if len(para.lines) == 0 {
+						// The whole paragraph was the header; it becomes the
+						// table directly rather than being closed and
+						// replaced, so its position among its siblings does
+						// not change.
+						para.Kind = KindTable
+						para.Align = align
+						table = para
+					} else {
+						p.close(para)
+						table = p.appendChild(container, KindTable)
+						table.Align = align
+					}
+
+					header := &Block{Kind: KindTableRow, Header: true, parent: table}
+					for _, text := range cells {
+						header.Children = append(header.Children,
+							&Block{Kind: KindTableCell, parent: header, lines: []string{text}})
+					}
+					table.Children = append(table.Children, header)
+					return table, true
+				}
+			}
+			c.restore(before)
+		}
 	}
 
 	// Setext heading: an underline turns the open paragraph into a heading.

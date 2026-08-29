@@ -152,7 +152,7 @@ func TestParseBlocks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := dumpBlocks(parseBlocks(tt.in).Root)
+			got := dumpBlocks(parseBlocks(tt.in, ParseOptions{}).Root)
 			if got != tt.want {
 				t.Errorf("parseBlocks(%q)\n got: %s\nwant: %s", tt.in, got, tt.want)
 			}
@@ -171,7 +171,7 @@ func FuzzParseBlocks(f *testing.F) {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, src string) {
-		doc := parseBlocks(src)
+		doc := parseBlocks(src, ParseOptions{})
 		if doc.Root.Kind != KindDocument {
 			t.Fatalf("root kind = %v, want Document", doc.Root.Kind)
 		}

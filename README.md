@@ -173,7 +173,10 @@ Under construction during the event window. Milestones, in order:
 - [x] **M3** CommonMark hardening, conformance score
 - [x] **M4** syntax highlighting, front-matter, navigation
 - [x] **M5** search index
-- [ ] **M6** fuzzing, benchmarks, documentation
+- [x] **M6** fuzzing, benchmarks, documentation
+- [x] **Beyond M6**: PDF export, mermaid-style diagrams, full Unicode case
+  folding (652/652), CI across three platforms, a six-platform release build,
+  and GFM tables
 
 ## Numbers
 
@@ -259,8 +262,20 @@ Written as they become true, not at the end. So far:
   Read both numbers with the caveats listed there before treating either as a
   verdict on which parser is "better" — they measure different things doing
   different amounts of work.
-- No tables, task lists, strikethrough, footnotes or autolink extensions.
-  bindery implements CommonMark, not GitHub Flavored Markdown.
+- **Tables are a GFM extension, and only that one.** No task lists,
+  strikethrough, footnotes or autolink extensions beyond CommonMark's own. The
+  table cell splitter treats any single backtick as toggling in and out of
+  code, which is a simplification, not full CommonMark code-span matching (a
+  variable-length closing run): `` `a|b` `` splits correctly; `` `` a|b ` ``
+  `` (an opening run of two backticks meant to hold one literal backtick)
+  would not.
+- **Table columns are sized differently in each renderer**, and this is
+  stated rather than left for a reader to notice by comparing them: HTML
+  tables use the browser's own content-based layout; the terminal renderer
+  measures every cell with the same `displayWidth` used for line wrapping and
+  sizes each column to its widest cell; the PDF renderer, which cannot ask a
+  browser to lay anything out, splits the page width evenly across columns
+  and wraps long cells within it.
 - **Front matter is a documented YAML subset**, not YAML: block mappings,
   sequences, scalars and comments. Anchors, aliases, tags, flow style, block
   scalars and multi-document streams are rejected with a line and column rather

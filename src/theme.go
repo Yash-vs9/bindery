@@ -225,7 +225,23 @@ h1 { font-size: 2rem; letter-spacing: -.02em; }
 h2 { font-size: 1.45rem; padding-bottom: .3rem; border-bottom: 1px solid var(--rule); }
 h3 { font-size: 1.15rem; }
 a { color: var(--accent); }
-p, ul, ol, blockquote { margin: 0 0 1rem; }
+p, ul, ol, table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: .92rem;
+}
+th, td {
+  border: 1px solid var(--rule);
+  padding: .45rem .7rem;
+  text-align: left;
+}
+th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+tbody tr:nth-child(even) { background: color-mix(in srgb, var(--code-bg) 45%, transparent); }
+blockquote { margin: 0 0 1rem; }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: .88em;

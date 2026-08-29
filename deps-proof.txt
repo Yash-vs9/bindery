@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 12:48:56Z
+date (UTC): 2026-08-29 13:05:25Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -35,12 +35,12 @@ bin/bindery: go1.27.0
 
 --- 5. source size ---
      159 src/bench_test.go
-     804 src/block.go
+     880 src/block.go
      179 src/block_test.go
      310 src/casefold.go
      684 src/diagram.go
      247 src/diagram_test.go
-     290 src/emphasis.go
+     310 src/emphasis.go
      413 src/frontmatter.go
      146 src/frontmatter_test.go
      323 src/highlight.go
@@ -56,14 +56,14 @@ bin/bindery: go1.27.0
      295 src/livereload.go
      392 src/main.go
      175 src/main_test.go
-     189 src/markdown.go
-     660 src/pdf.go
+     197 src/markdown.go
+     801 src/pdf.go
      244 src/pdf_test.go
       52 src/pdfmetrics.go
      126 src/property_test.go
-     258 src/render_ansi.go
+     322 src/render_ansi.go
       74 src/render_ansi_test.go
-     332 src/render_html.go
+     382 src/render_html.go
      184 src/scan.go
      271 src/search.go
      185 src/search_test.go
@@ -72,33 +72,35 @@ bin/bindery: go1.27.0
      245 src/site.go
      158 src/spec.go
      122 src/spec_test.go
+     137 src/table.go
+     171 src/table_test.go
       82 src/term.go
       10 src/term_other.go
       19 src/term_test.go
       50 src/term_windows.go
-     494 src/theme.go
+     510 src/theme.go
      116 src/toc.go
      114 src/toc_test.go
      142 src/watch.go
      193 src/watch_test.go
      506 tests/e2e_test.go
-   11511 total
+   12194 total
 
 --- 6. formatting and vet ---
 gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery/src	0.791s
-ok  	bindery/tests	7.782s
+ok  	bindery/src	0.761s
+ok  	bindery/tests	10.426s
 
 --- 8. reproducible build ---
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery ./src
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-b/bindery ./src
-29d33389d7b4ea31d23d0f0e2d923c6f75727be60b6470de1794d3687dc7a8b6  bin/repro-a/bindery
-29d33389d7b4ea31d23d0f0e2d923c6f75727be60b6470de1794d3687dc7a8b6  bin/repro-b/bindery
+3fffb9dbc7a2f709f10f888edb2cc0e814b50c65aed211e567cde132831b32f1  bin/repro-a/bindery
+3fffb9dbc7a2f709f10f888edb2cc0e814b50c65aed211e567cde132831b32f1  bin/repro-b/bindery
 REPRODUCIBLE: two builds, identical bytes
 
 --- 9. reproducible site output ---
 REPRODUCIBLE: two site builds, identical trees
-e7b88a3cb2a51ac9d1625af01ccaf2d1721facbac98aa90aee2c7789363aa04f  bin/site-a/search-index.json
+47639c32a373172ef093aff9b2f33ffc5d09092bde4435cd691155e317680170  bin/site-a/search-index.json

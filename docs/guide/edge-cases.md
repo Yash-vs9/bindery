@@ -44,3 +44,17 @@ An [inline link](https://example.com "with a title"), an autolink
 <https://example.com>, and an email <hello@example.com>.
 
 Links do not nest: [outer [inner](https://inner.example) outer](https://outer.example).
+
+## Tables
+
+GFM tables are not part of CommonMark, so this is an opt-in extension —
+`bindery spec` never enables it, and the 652/652 conformance score is
+unaffected either way.
+
+| Feature      | Standard | Notes                                    |
+|:-------------|:--------:|:------------------------------------------|
+| Tables       |   GFM    | off in `bindery spec`, on everywhere else |
+| Diagrams     |   n/a    | `mermaid` fences, rendered as inline SVG  |
+| Case folding | Unicode  | 266-entry exception table, not a full impl |
+
+A cell may contain inline code with a pipe, like `` `a|b` ``, without splitting.

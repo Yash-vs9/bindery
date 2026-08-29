@@ -32,11 +32,15 @@ const (
 	KindList          // container of KindListItem
 	KindListItem
 	KindHTMLBlock
+	KindTable     // GFM extension, disabled during CommonMark conformance runs
+	KindTableRow  // a row within KindTable; Header marks the header row
+	KindTableCell // a cell within KindTableRow; Inlines holds its content
 )
 
 var blockKindNames = [...]string{
 	"Document", "Paragraph", "Heading", "ThematicBreak", "CodeFenced",
 	"CodeIndented", "Quote", "List", "ListItem", "HTMLBlock",
+	"Table", "TableRow", "TableCell",
 }
 
 func (k BlockKind) String() string {
@@ -72,6 +76,10 @@ type Block struct {
 	Tight    bool // List: rendered without <p> wrappers around item content
 	Marker   byte // List, ListItem: one of -+* or . )
 	contIndl int  // ListItem: columns of indentation its content requires
+
+	// Table and TableRow.
+	Align  []CellAlign // Table: one entry per column, from the delimiter row
+	Header bool        // TableRow: this is the header row
 
 	// Phase 1 scratch state, unexported because it is meaningless afterwards.
 	// parent is unexported for a second reason: the tree would otherwise be

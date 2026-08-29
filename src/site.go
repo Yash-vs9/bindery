@@ -124,7 +124,7 @@ func newPage(sourcePath, rel, src string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	doc := Parse(body)
+	doc := ParseWithOptions(body, ParseOptions{Tables: true})
 
 	// README.md and index.md both become the directory's index page, which is
 	// what makes bindery work on a repository you did not write for it.

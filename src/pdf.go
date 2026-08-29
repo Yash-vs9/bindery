@@ -456,7 +456,148 @@ func (d *pdfDoc) block(b *Block, indent float64) {
 	case KindHTMLBlock:
 		// Raw HTML has no meaning on paper; skipping it is more honest than
 		// printing angle brackets at the reader.
+
+	case KindTable:
+		d.table(b, indent)
 	}
+}
+
+// tableCellSize is the type size used inside a table cell, slightly smaller
+// than body text so a table with several columns has a chance of fitting the
+// page width without every cell wrapping to multiple lines.
+const tableCellSize = bodySize - 1
+
+// wrapWords breaks words into lines that each fit within maxWidth, without
+// drawing anything. This is the same greedy line-break paragraph uses, needed
+// standalone here because a table row's height -- the tallest cell in it --
+// must be known before any cell in that row can be drawn, whereas paragraph
+// wraps and draws in a single pass because a paragraph has no row to align to.
+func wrapWords(words []pdfWord, maxWidth float64) [][]pdfWord {
+	if len(words) == 0 {
+		return nil
+	}
+	var lines [][]pdfWord
+	line := make([]pdfWord, 0, 8)
+	lineWidth := 0.0
+
+	flush := func() {
+		if len(line) > 0 {
+			lines = append(lines, line)
+			line = make([]pdfWord, 0, 8)
+			lineWidth = 0
+		}
+	}
+
+	for _, w := range words {
+		space := 0.0
+		if len(line) > 0 && !w.glue {
+			space = gapWidth(line[len(line)-1], w)
+		}
+		if len(line) > 0 && lineWidth+space+w.width > maxWidth {
+			flush()
+		}
+		if len(line) > 0 {
+			lineWidth += space
+		}
+		line = append(line, w)
+		lineWidth += w.width
+	}
+	flush()
+	return lines
+}
+
+// lineWidth sums a wrapped line's width, words and the gaps between them,
+// which right and centre alignment need to know before they can place it.
+func lineWidth(line []pdfWord) float64 {
+	total := 0.0
+	for i, w := range line {
+		if i > 0 {
+			total += gapWidth(line[i-1], w)
+		}
+		total += w.width
+	}
+	return total
+}
+
+// table draws a GFM table as a real grid: ruled borders, a shaded header row,
+// and word-wrapped cells, rather than a text fallback. Columns split the
+// available width equally; wrapping each cell's words to that width, with the
+// same measured Helvetica metrics body text wraps with, is what keeps a long
+// cell legible instead of running off the page edge.
+func (d *pdfDoc) table(b *Block, indent float64) {
+	cols := len(b.Align)
+	if cols == 0 {
+		return
+	}
+	width := pdfTextWidth - indent
+	colWidth := width / float64(cols)
+	const cellPad = 5.0
+	const lineHeight = tableCellSize + 3.5
+	x0 := pdfMargin + indent
+
+	d.y -= 4
+	for r, row := range b.Children {
+		wrapped := make([][][]pdfWord, cols)
+		rowLines := 1
+		for col := 0; col < cols && col < len(row.Children); col++ {
+			font := fontRegular
+			if row.Header {
+				font = fontBold
+			}
+			words := inlineWords(row.Children[col].Inlines, font, tableCellSize, "")
+			wrapped[col] = wrapWords(words, colWidth-2*cellPad)
+			rowLines = max(rowLines, len(wrapped[col]))
+		}
+		rowHeight := float64(rowLines)*lineHeight + 2*cellPad
+
+		d.ensure(rowHeight)
+		top := d.y
+		if row.Header {
+			d.rect(x0, top-rowHeight, width, rowHeight, 0.94)
+		}
+
+		for col := 0; col < cols; col++ {
+			cx := x0 + float64(col)*colWidth
+			for li, line := range wrapped[col] {
+				baseline := top - cellPad - float64(li+1)*lineHeight + (lineHeight-tableCellSize)*0.5
+				lx := cx + cellPad
+				switch alignOf(b.Align, col) {
+				case AlignRight:
+					lx = cx + colWidth - cellPad - lineWidth(line)
+				case AlignCenter:
+					lx = cx + (colWidth-lineWidth(line))/2
+				}
+				for i, w := range line {
+					if i > 0 {
+						lx += gapWidth(line[i-1], w)
+					}
+					d.showText(w.text, w.font, w.size, lx, baseline, w.grey)
+					lx += w.width
+				}
+			}
+		}
+
+		// Column separators, top rule (once) and this row's bottom rule.
+		if r == 0 {
+			d.rect(x0, top, width, 0.6, 0.75)
+		}
+		for col := 0; col <= cols; col++ {
+			d.rect(x0+float64(col)*colWidth, top-rowHeight, 0.6, rowHeight, 0.75)
+		}
+		d.rect(x0, top-rowHeight, width, 0.6, 0.75)
+		d.y = top - rowHeight
+	}
+	d.y -= bodyLeading * 0.5
+}
+
+// alignOf returns the alignment for a column, or AlignNone if the table's
+// alignment slice does not cover it -- which cannot happen for a well-formed
+// table, but a defensive default beats a panic on a malformed one.
+func alignOf(aligns []CellAlign, col int) CellAlign {
+	if col < len(aligns) {
+		return aligns[col]
+	}
+	return AlignNone
 }
 
 // codeBlock renders literal text in the monospaced font on a tinted panel.

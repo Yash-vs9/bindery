@@ -356,7 +356,7 @@ func cmdRender(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", fs.Arg(0), err)
 	}
-	doc := Parse(body)
+	doc := ParseWithOptions(body, ParseOptions{Tables: true})
 
 	switch *format {
 	case "html":

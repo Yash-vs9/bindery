@@ -191,7 +191,57 @@ func renderBlock(w *htmlWriter, b *Block) {
 		w.cr()
 		w.write(b.Text())
 		w.cr()
+
+	case KindTable:
+		w.cr()
+		w.write("<table>")
+		for i, row := range b.Children {
+			if i == 0 {
+				w.write("<thead>")
+			} else if i == 1 {
+				w.write("<tbody>")
+			}
+			w.write("<tr>")
+			for col, cell := range row.Children {
+				tag := "td"
+				if row.Header {
+					tag = "th"
+				}
+				w.write("<" + tag)
+				if col < len(b.Align) {
+					if attr := alignAttr(b.Align[col]); attr != "" {
+						w.write(attr)
+					}
+				}
+				w.write(">")
+				renderInlines(w, cell.Inlines)
+				w.write("</" + tag + ">")
+			}
+			w.write("</tr>")
+			if i == 0 {
+				w.write("</thead>")
+			}
+		}
+		if len(b.Children) > 1 {
+			w.write("</tbody>")
+		}
+		w.write("</table>")
+		w.cr()
 	}
+}
+
+// alignAttr returns the style attribute GitHub's own renderer emits for a
+// column alignment, or "" for the default (no alignment specified).
+func alignAttr(a CellAlign) string {
+	switch a {
+	case AlignLeft:
+		return ` style="text-align:left"`
+	case AlignRight:
+		return ` style="text-align:right"`
+	case AlignCenter:
+		return ` style="text-align:center"`
+	}
+	return ""
 }
 
 // inTightList reports whether b is a paragraph directly inside an item of a

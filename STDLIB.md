@@ -690,3 +690,54 @@ trusting a cross-compiled artifact on faith.
 already confirmed the destination is a real console before calling this; if
 enabling VT100 processing fails anyway, the worst outcome is escape codes not
 rendering as colour, never corrupted output.
+
+### GFM tables
+**Instead of** `remark-gfm` / `markdown-it-multimd-table` / cmark-gfm's own
+table extension
+**I used** `table.go`, a recognition rule layered onto the existing block
+parser, plus rendering in all three back ends.
+
+Tables are not part of CommonMark at all — this is a GitHub Flavored Markdown
+extension, and it is treated that way throughout. Recognition is a
+`ParseOptions{Tables: true}` flag, off by default, so `bindery spec` continues
+to call bare `Parse` and measure the parser against unmodified CommonMark:
+the 652/652 conformance score is unaffected by whether this feature exists at
+all. `TestTablesAreOptional` asserts exactly that split.
+
+Recognition mirrors how a setext heading is recognised, because the shape of
+the problem is the same: a table is only visible in retrospect. A one-line
+paragraph followed by a valid delimiter row becomes a header; anything the
+paragraph held before that line stays an ordinary paragraph in front of it.
+From there the table behaves like a fenced code block — a leaf that keeps
+absorbing one row per non-blank line until a blank line closes it — rather
+than a true container in the block-continuation sense that the rest of the
+parser uses for quotes and lists.
+
+**The bug this would have caused, caught before it ran once:** a delimiter row
+that is only dashes, no pipe at all — bare `---` — is also a valid setext
+underline. Without requiring at least one literal pipe in the delimiter row,
+every single-line paragraph immediately followed by `---` anywhere in this
+project's own test corpus would have silently become a one-column table
+instead of a level-two heading, which is exactly backwards from what GFM's own
+reference implementation does and would have been a regression a reader might
+never notice, because a paragraph un-converted to a heading and a paragraph
+converted to a table both *look* like something rendered. `TestTableRequiresDelimiterPipe`
+asserts three cases side by side — a setext heading, a setext level-one
+heading, and a thematic break — all of which must survive with tables turned
+on.
+
+Column widths differ across the three renderers, and are documented as
+differing in README.md rather than left for a reader to discover by comparing
+them: HTML tables use the browser's own content-based layout; the terminal
+renderer measures every cell with the same `displayWidth` line-wrapping
+already uses and sizes each column to its widest cell; the PDF renderer
+splits the page width evenly across columns and wraps long cells within it,
+reusing the same Helvetica advance-width measurements the rest of the PDF
+writer already depends on — one more place that font-metrics table pays for
+itself.
+
+**Cost:** cell splitting treats a single backtick as toggling code, which is
+a simplification of CommonMark's own code-span rule (a variable-length
+closing run) rather than a full implementation of it. No nested tables, no
+column spans, no GFM's other extensions (task lists, strikethrough,
+footnotes, autolinks).

@@ -127,7 +127,71 @@ func (r *ansiRenderer) block(b *Block, prefix string) {
 		for _, line := range strings.Split(strings.TrimRight(b.Text(), "\n"), "\n") {
 			r.line(prefix, r.style(line, ansiDim))
 		}
+
+	case KindTable:
+		r.table(b, prefix)
 	}
+}
+
+// table renders a GFM table as a box-drawing grid. Column widths are computed
+// with displayWidth rather than byte or rune count, so CJK text and combining
+// marks pad correctly.
+func (r *ansiRenderer) table(b *Block, prefix string) {
+	rows := make([][]string, len(b.Children))
+	widths := make([]int, len(b.Align))
+
+	for i, row := range b.Children {
+		rows[i] = make([]string, len(widths))
+		for col := range widths {
+			text := ""
+			if col < len(row.Children) {
+				text = r.inlines(row.Children[col].Inlines)
+			}
+			rows[i][col] = text
+			if w := displayWidth(text); w > widths[col] {
+				widths[col] = w
+			}
+		}
+	}
+	for i, w := range widths {
+		widths[i] = max(w, 3)
+	}
+
+	rule := func(left, mid, right string) {
+		var sb strings.Builder
+		sb.WriteString(left)
+		for i, w := range widths {
+			if i > 0 {
+				sb.WriteString(mid)
+			}
+			sb.WriteString(strings.Repeat("─", w+2))
+		}
+		sb.WriteString(right)
+		r.line(prefix, r.style(sb.String(), ansiDim))
+	}
+
+	renderRow := func(cells []string, bold bool) {
+		var sb strings.Builder
+		sb.WriteString(r.style("│", ansiDim))
+		for col, w := range widths {
+			text := cells[col]
+			pad := max(w-displayWidth(text), 0)
+			if bold {
+				text = r.style(text, ansiBold)
+			}
+			sb.WriteString(" " + text + strings.Repeat(" ", pad) + " " + r.style("│", ansiDim))
+		}
+		r.line(prefix, sb.String())
+	}
+
+	rule("┌", "┬", "┐")
+	for i, row := range rows {
+		renderRow(row, i == 0)
+		if i == 0 {
+			rule("├", "┼", "┤")
+		}
+	}
+	rule("└", "┴", "┘")
 }
 
 // item renders a list item, whose first line carries the marker and whose

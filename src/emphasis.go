@@ -256,6 +256,10 @@ func parseDocumentInlines(d *Document) {
 			// literal
 		case b.Kind == KindThematicBreak:
 			// no content
+		case b.Kind == KindTable || b.Kind == KindTableRow:
+			for _, child := range b.Children {
+				walk(child)
+			}
 		default:
 			b.Inlines = parseInlines(b.Text(), d.Refs)
 		}
@@ -263,9 +267,25 @@ func parseDocumentInlines(d *Document) {
 	walk(d.Root)
 }
 
-// Parse runs both phases and returns a complete document.
+// ParseOptions turns on parsing that goes beyond CommonMark itself.
+//
+// The zero value is plain CommonMark. This mirrors RenderOptions in
+// render_html.go, and for the same reason: "bindery spec" must keep measuring
+// the parser against unmodified CommonMark, so the one call site that must
+// never pass a non-zero ParseOptions is the conformance runner in spec.go.
+type ParseOptions struct {
+	Tables bool // GFM tables; not part of CommonMark
+}
+
+// Parse runs both phases under plain CommonMark and returns a complete
+// document. This is what the conformance suite calls.
 func Parse(src string) *Document {
-	doc := parseBlocks(src)
+	return ParseWithOptions(src, ParseOptions{})
+}
+
+// ParseWithOptions runs both phases with the given extensions enabled.
+func ParseWithOptions(src string, opts ParseOptions) *Document {
+	doc := parseBlocks(src, opts)
 	parseDocumentInlines(doc)
 	return doc
 }
