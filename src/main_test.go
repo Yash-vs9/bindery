@@ -125,8 +125,22 @@ func TestErrorsGoToStderr(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want it empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "no such file or directory") {
-		t.Errorf("stderr = %q, want it to explain the failure", stderr.String())
+
+	// The underlying OS error text is not portable and must not be asserted
+	// literally: Go's os package reports a missing path as "no such file or
+	// directory" on Unix and as "The system cannot find the file specified"
+	// on Windows -- different wording for the identical failure. This was
+	// found by CI failing on windows-latest with an otherwise perfectly
+	// correct stderr message that simply used Windows's own phrasing. What is
+	// portable, because main.go's own error wrapping guarantees it
+	// regardless of platform, is the "bindery:" prefix and the path that
+	// failed appearing somewhere in the message.
+	msg := stderr.String()
+	if !strings.HasPrefix(msg, "bindery: ") {
+		t.Errorf("stderr = %q, want it to start with \"bindery: \"", msg)
+	}
+	if !strings.Contains(msg, "nonexistent-directory-xyz") {
+		t.Errorf("stderr = %q, want it to name the missing path", msg)
 	}
 }
 
