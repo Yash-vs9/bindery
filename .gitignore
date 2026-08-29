@@ -1,0 +1,8 @@
+# Build output
+bin/
+site/
+
+# "go build ./..." drops the executable in the working directory
+/bindery
+
+.DS_Store

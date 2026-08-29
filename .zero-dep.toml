@@ -1,0 +1,4 @@
+track = "F"
+pitch = "A folder of Markdown becomes a searchable docs site with live reload. One binary, zero dependencies."
+language = "Go"
+toolchain = "go1.27.0"
