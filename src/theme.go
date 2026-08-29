@@ -112,6 +112,9 @@ const pageCSS = `
   --hl-fn: #2f5fd0;
   --hl-ins: #197a3d;
   --hl-del: #b3261e;
+  --diagram-fill: #f3f5fa;
+  --diagram-stroke: #b9c2d6;
+  --diagram-edge: #7a8598;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -130,6 +133,9 @@ const pageCSS = `
     --hl-fn: #82aaff;
     --hl-ins: #8bd49c;
     --hl-del: #ff8a80;
+    --diagram-fill: #1e2129;
+    --diagram-stroke: #3a4050;
+    --diagram-edge: #79839a;
   }
 }
 * { box-sizing: border-box; }
@@ -235,6 +241,14 @@ pre {
   margin: 0 0 1.25rem;
 }
 pre code { background: none; padding: 0; font-size: .85rem; line-height: 1.55; }
+.bd-figure { margin: 1.4rem 0; text-align: center; overflow-x: auto; }
+.bd-diagram { max-width: 100%; height: auto; color: var(--diagram-edge); }
+.bd-node { fill: var(--diagram-fill); stroke: var(--diagram-stroke); stroke-width: 1.4; }
+.bd-node-text { fill: var(--fg); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+.bd-edge { stroke: var(--diagram-edge); stroke-width: 1.4; fill: none; }
+.bd-edge-dashed { stroke-dasharray: 5 4; }
+.bd-edge-label-bg { fill: var(--bg); }
+.bd-edge-label { fill: var(--muted); font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
 .hl-kw  { color: var(--hl-kw); }
 .hl-str { color: var(--hl-str); }
 .hl-num { color: var(--hl-num); }

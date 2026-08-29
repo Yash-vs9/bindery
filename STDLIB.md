@@ -561,3 +561,49 @@ end-to-end test through the real binary both check it.
 cross-reference table and confirms every offset lands exactly on its object
 header. An offset wrong by a single byte makes the file unopenable while every
 other structural check still passes.
+
+### Diagrams
+**Instead of** `mermaid`
+**I used** `src/diagram.go`: a parser, a layered layout and an SVG emitter.
+
+Mermaid is several hundred kilobytes of JavaScript that a documentation site
+loads on every page in order to draw a handful of boxes and arrows. bindery
+renders a ```` ```mermaid ```` fence to inline SVG at build time, so the
+published page ships a picture rather than a library and a source string.
+
+Three parts. A parser for the flowchart subset people actually write: `graph TD`
+and `graph LR`, four node shapes, four arrow kinds, edge labels, and chained
+statements. A layered layout in the Sugiyama tradition — assign layers by
+longest path, order within each layer by the barycentre heuristic to reduce
+crossings, then assign coordinates. And an SVG emitter, which is string building,
+because SVG is text.
+
+Box sizes come from the **Helvetica advance widths already in the tree for the
+PDF writer**, and the emitted SVG asks for Helvetica. Measuring in the font that
+will actually render is why labels fit their boxes rather than approximately
+fitting them — one piece of measured data paying for itself twice.
+
+**The bug worth recording** is cycles. A flowchart routinely contains one: a
+retry loop, a watcher returning to idle. Relaxing layer assignments over a cycle
+pushes nodes deeper on every pass, so the first version spread a nine-node graph
+across a dozen layers and left an arrow pointing at nothing. Back edges are now
+found by three-colour depth-first search — an edge into a node still on the DFS
+stack closes a cycle — and excluded from layering.
+
+**The second thing found by looking rather than testing:** an edge spanning more
+than one layer was drawn straight through whatever nodes lay between its
+endpoints. Real layout engines insert dummy nodes and route through them; here
+such edges are routed out to a lane beside the graph and back, which also makes
+a loop look like a loop.
+
+Colours come from CSS classes rather than being written into the markup, so a
+diagram follows the page into dark mode. Every SVG carries a `<title>` naming
+the connections, because a diagram that exists only visually excludes anyone
+using a screen reader — and that same description is what the PDF prints, rather
+than dumping the diagram source onto the page.
+
+**Cost:** one ordering pass rather than an iterated one, straight edges rather
+than splines, no subgraphs, no styling directives, no sequence or class or Gantt
+diagrams. Self-loops are parsed and not drawn. A fence that does not parse falls
+back to a code block, which is more useful than an error where a picture should
+be.

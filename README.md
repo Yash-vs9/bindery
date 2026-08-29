@@ -234,6 +234,17 @@ Written as they become true, not at the end. So far:
   searchable.
 - The search index is fetched from an absolute `/search-index.json`, so a site
   served from a subdirectory will not find it.
+- **Diagrams are a flowchart subset.** ```` ```mermaid ```` fences render as
+  inline SVG: `graph TD` and `graph LR`, four node shapes, four arrow kinds,
+  edge labels. No subgraphs, no styling directives, no sequence, class or Gantt
+  diagrams. A fence that does not parse falls back to a code block.
+- **Diagram layout is one ordering pass, not an iterated one**, and edges are
+  straight lines rather than splines. Edges spanning more than one layer are
+  routed around the side of the graph rather than through the nodes between
+  them. Self-loops are parsed and not drawn.
+- **In PDF output a diagram becomes its written description**, the same text a
+  screen reader is given for the SVG. Drawing it would mean a second layout
+  target; printing the source would be worse than either.
 - **PDF output is Latin text only.** It uses the base-14 fonts every reader
   already has, which is what removes font parsing and rasterisation from the
   problem — and what limits it. Smart quotes and dashes are transliterated;

@@ -424,6 +424,17 @@ func (d *pdfDoc) block(b *Block, indent float64) {
 		d.y -= bodyLeading * 0.45
 
 	case KindCodeFenced, KindCodeIndented:
+		// A diagram has no place on paper as source. It becomes its own
+		// accessible description, which is the same text a screen reader is
+		// given for the SVG on the web.
+		if isDiagramLanguage(firstWord(b.Info)) {
+			if dia := parseDiagram(b.Text()); dia != nil {
+				d.paragraph(oneWord(toASCII(dia.description()), fontItalic, bodySize-0.5, 0.4),
+					indent+8, bodyLeading)
+				d.y -= bodyLeading * 0.4
+				return
+			}
+		}
 		d.codeBlock(b, indent)
 
 	case KindQuote:

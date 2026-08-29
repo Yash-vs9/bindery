@@ -31,6 +31,7 @@ import (
 type RenderOptions struct {
 	Highlight  bool
 	HeadingIDs bool
+	Diagrams   bool
 }
 
 // htmlWriter is a string builder that tracks whether it sits at line start.
@@ -116,6 +117,17 @@ func renderBlock(w *htmlWriter, b *Block) {
 		w.cr()
 
 	case KindCodeFenced:
+		// A diagram fence becomes a picture. If it does not parse as one it
+		// falls through to being rendered as code, which is more useful than an
+		// error message where a diagram should be.
+		if w.opts.Diagrams && isDiagramLanguage(firstWord(b.Info)) {
+			if svg, ok := renderDiagram(b.Text()); ok {
+				w.cr()
+				w.write(`<figure class="bd-figure">` + svg + "</figure>")
+				w.cr()
+				return
+			}
+		}
 		w.cr()
 		w.write("<pre><code")
 		// Only the first word of the info string becomes the language class.
@@ -251,6 +263,15 @@ func plainText(inlines []Inline) string {
 	}
 	walk(inlines)
 	return sb.String()
+}
+
+// isDiagramLanguage reports whether an info string asks for a diagram.
+func isDiagramLanguage(lang string) bool {
+	switch strings.ToLower(lang) {
+	case "mermaid", "flowchart", "graph":
+		return true
+	}
+	return false
 }
 
 func firstWord(s string) string {

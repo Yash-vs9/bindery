@@ -159,7 +159,7 @@ func newPage(sourcePath, rel, src string) (*Page, error) {
 		Meta:       meta,
 		Order:      intValue(meta, "order", unordered),
 		Draft:      boolValue(meta, "draft", false),
-		Body:       RenderHTMLWith(doc, RenderOptions{Highlight: true, HeadingIDs: true}),
+		Body:       RenderHTMLWith(doc, RenderOptions{Highlight: true, HeadingIDs: true, Diagrams: true}),
 	}, nil
 }
 

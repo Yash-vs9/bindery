@@ -15,6 +15,24 @@ bindery dev ./docs
 
 The dev server watches the directory and reloads the browser on save.
 
+## How the dev server works
+
+```mermaid
+graph TD
+  A[bindery dev] --> B{file changed?}
+  B -->|yes| C[parse markdown]
+  B -->|no| D((wait))
+  C --> E[render html]
+  C --> F[build search index]
+  E --> G[notify browser]
+  F --> G
+  G --> D
+  D --> B
+```
+
+The watcher polls, because Go's standard library has no file-watching API.
+Changes are debounced so that one save means one rebuild.
+
 ## Building
 
 ```bash
