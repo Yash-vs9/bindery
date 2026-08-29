@@ -33,6 +33,15 @@ Listed first, because it matters most.
   binary with `go:embed` so that `bindery spec` runs anywhere, and it is used
   only to measure conformance — no part of it is consulted while parsing.
 
+- **The full case-folding exception table** in `src/casefold.go` — 266
+  code-point mappings generated from the Unicode Consortium's
+  `CaseFolding.txt` (<https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt>),
+  filtered to the "C" and "F" status records and to only the entries where the
+  full fold disagrees with Go's `strings.ToLower`. Data, not code: a generation
+  script (not shipped) parsed the published file and emitted the Go map; no
+  code from the Unicode Consortium or from any case-folding implementation is
+  in this repository. See the "Full Unicode case folding" entry below.
+
 ## Substitutions
 
 ### CLI argument parsing
@@ -93,15 +102,17 @@ stack. It is implemented as written, including the openersBottom bookkeeping
 that keeps pathological input linear rather than quadratic, and the rule of
 three that decides `*foo**bar*`.
 
-**Result: 651 of 652 examples, 99.8%**, against CommonMark 0.31.2, compared
+**Result: 652 of 652 examples, 100.0%**, against CommonMark 0.31.2, compared
 byte for byte with no normalisation. `bindery spec` prints the score and
-`go test` fails if it drops. Every section is at 100% except Links, where one
-example fails for a reason documented below.
+`go test` fails if it either drops *or* improves without the test suite being
+updated -- `specBaseline` in `spec_test.go` is a ratchet, not a target, and
+closing the last gap (see the case-folding entry below) meant raising it from
+651 to 652 in the same commit that fixed the parser.
 
-**Cost:** roughly 2,000 lines and the majority of the build. It is also slower
-than the parser it replaces: bindery renders mixed Markdown at about 18–27 MB/s,
-where goldmark is several times faster. The number is published in README.md
-rather than omitted.
+**Cost:** roughly 2,000 lines and the majority of the build. Speed relative to
+the parser it replaces is measured in README.md rather than asserted here --
+faster on both benchmark corpora, meaningfully hungrier for memory on realistic
+prose. See "Numbers" in README.md for the figures and the caveats around them.
 
 ### HTML entity resolution
 **Instead of** `he` / `entities`
@@ -281,29 +292,47 @@ server.
 
 **Cost:** none. This is newer and better than what most middleware does.
 
-### Full Unicode case folding — the one thing the standard library cannot do
-**I would have used** `golang.org/x/text/cases`
-**and there is no standard-library answer.**
+### Full Unicode case folding — closed without the dependency that provides it
+**Instead of** `golang.org/x/text/cases`
+**I used** `casefold.go`, a 266-entry table generated from Unicode's own
+published data.
 
 CommonMark normalises link labels with *full* Unicode case folding, under which
 U+1E9E, capital sharp s, folds to the two characters `ss` — so `[ẞ]` matches a
-definition written `[SS]`. Go's standard library has only *simple* case mapping:
+definition written `[SS]`. Go's standard library has only *simple* case
+mapping:
 
     strings.ToLower("ẞ")           == "ß"     // one rune to one rune
     strings.EqualFold("ẞ", "SS")   == false   // simple folding, not full
 
-Neither can map one rune to two, and no other package in the standard library
-carries the full folding table. `golang.org/x/text` has it, and is exactly the
+Neither can map one rune to two, and no package in the standard library carries
+the full folding table. `golang.org/x/text/cases` has it, and is exactly the
 kind of dependency this project does not take — the event's rules are explicit
 that `golang.org/x` is not a free pass.
 
-So this is the single conformance example bindery fails, and it fails on purpose.
-Special-casing sharp s would pass the test without implementing the rule, which
-is tuning to the suite rather than to the specification, and it would make the
-99.8% mean less. `TestUnicodeCaseFoldingIsSimpleNotFull` asserts the gap and will
-start failing if the standard library ever closes it.
+The gap stood for two milestones, documented as accepted rather than fixed. It
+closed the same way the PDF writer's font metrics did: rather than transcribing
+a table by hand, or reaching for the package that carries it, the Unicode
+Consortium's own `CaseFolding.txt` was fetched and parsed, and the *disagreement*
+between full folding and `strings.ToLower` was extracted — 266 code points out
+of 1,585 in the published data, everywhere else the standard library is already
+correct. `fullFold` checks that small table first and falls back to
+`strings.ToLower` for everything else, so the exception table stays small
+precisely because it is not duplicating what the standard library already gets
+right.
 
-**Cost:** one conformance example, and an honest note instead of a workaround.
+`TestFullCaseFoldingResolvesCapitalSharpS` pins the example that used to fail.
+`TestStdlibCaseMappingIsStillSimple` pins the standard-library behaviour that
+made the table necessary in the first place, and says in its own comment that
+it should be deleted, along with `casefold.go`, the day Go's standard library
+grows full folding on its own.
+
+**Cost:** 300 lines for 266 entries most callers will never touch, and one
+generation script (not shipped, described here) that has to be re-run if a
+future Unicode revision changes the mapping. `strings.ToLower("ẞ")` and
+`strings.EqualFold("ẞ", "SS")` are asserted directly, so a change in Go's own
+folding behaviour is caught rather than silently making this table redundant or,
+worse, wrong.
 
 ### Syntax highlighting
 **Instead of** `highlight.js` / `prism` / `chroma`
@@ -490,9 +519,9 @@ go mod init mdbench && go get github.com/yuin/goldmark
 Both sides were run five times on the same machine, same Go version, same two
 corpora. The result — bindery faster on both, and allocating half again as much
 memory on realistic prose — is in README.md with the caveats it needs, the most
-important being that goldmark passes 652/652 where bindery passes 651/652 and
-implements six extensions bindery does not. Being faster is partly a consequence
-of doing less.
+important being that goldmark implements six extensions bindery does not (both
+now pass 652/652 of the core CommonMark suite). Being faster is partly a
+consequence of doing less.
 
 ### Fuzzing
 

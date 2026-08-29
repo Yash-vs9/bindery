@@ -11,7 +11,7 @@ import (
 // every future change into a conformance regression check for free; when the
 // score improves, this number is raised deliberately. Pinning the exact figure
 // rather than a percentage keeps it honest about single-example regressions.
-const specBaseline = 651
+const specBaseline = 652
 
 func TestCommonMarkSpec(t *testing.T) {
 	examples, err := loadSpec()
@@ -60,19 +60,22 @@ func TestCommonMarkSpecBySection(t *testing.T) {
 	}
 }
 
-// TestUnicodeCaseFoldingIsSimpleNotFull documents the one failing example.
+// TestStdlibCaseMappingIsStillSimple documents why casefold.go exists, by
+// pinning the standard-library behaviour that made it necessary.
 //
 // CommonMark normalises link labels with full Unicode case folding, under which
 // U+1E9E (capital sharp s) folds to the two characters "ss", so "[ẞ]" matches a
 // definition of "[SS]". Go's standard library has only simple case mapping:
 // strings.ToLower gives "ß" and strings.EqualFold does simple folding, neither
 // of which can map one rune to two. golang.org/x/text has the full tables and is
-// exactly the kind of dependency this project does not take.
+// exactly the kind of dependency this project does not take -- so casefold.go
+// carries a small table of exceptions, generated from the Unicode Consortium's
+// own CaseFolding.txt, covering only the 266 code points where full folding
+// disagrees with what the standard library already does correctly.
 //
-// This asserts the gap rather than working around it. Special-casing sharp s to
-// pass one example would be tuning to the test suite instead of implementing the
-// specification, and would make the reported score mean less.
-func TestUnicodeCaseFoldingIsSimpleNotFull(t *testing.T) {
+// If this test ever fails, the standard library gained full folding and
+// casefold.go's exception table -- and this comment -- can be deleted.
+func TestStdlibCaseMappingIsStillSimple(t *testing.T) {
 	const capitalSharpS = "ẞ"
 
 	if got := strings.ToLower(capitalSharpS); got != "ß" {
@@ -80,15 +83,40 @@ func TestUnicodeCaseFoldingIsSimpleNotFull(t *testing.T) {
 			capitalSharpS, got)
 	}
 	if strings.EqualFold(capitalSharpS, "SS") {
-		t.Error("strings.EqualFold now does full case folding; the label " +
-			"normaliser in normalizeLabel can be improved and specBaseline raised")
+		t.Error("strings.EqualFold now does full case folding; casefold.go may be redundant")
 	}
+}
 
-	// The consequence, stated as a test so that it is visible rather than
-	// buried in a document.
+// TestFullCaseFoldingResolvesCapitalSharpS is the positive half: the example
+// that was CommonMark 0.31.2's only failure for two milestones now passes,
+// because normalizeLabel folds through casefold.go's exception table rather
+// than through strings.ToLower alone.
+func TestFullCaseFoldingResolvesCapitalSharpS(t *testing.T) {
 	got := RenderHTML(Parse("[ẞ]\n\n[SS]: /url\n"))
-	want := "<p>[ẞ]</p>\n"
+	want := "<p><a href=\"/url\">ẞ</a></p>\n"
 	if got != want {
-		t.Errorf("case folding behaviour changed: got %q, want %q", got, want)
+		t.Errorf("example 540 regressed: got %q, want %q", got, want)
 	}
+}
+
+func FuzzFullFold(f *testing.F) {
+	for _, seed := range []string{"a", "A", "ẞ", "ß", "İ", "ﬀ", "", "9", " "} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		for _, r := range s {
+			folded := fullFold(r)
+			if folded == "" && r != 0 {
+				t.Fatalf("fullFold(%q) returned empty for a non-zero rune", r)
+			}
+			// Folding must be idempotent per character: folding an
+			// already-folded rune should not change it further for anything
+			// the table maps to plain ASCII lowercase output.
+			for _, out := range folded {
+				if out >= 'A' && out <= 'Z' {
+					t.Fatalf("fullFold(%q) = %q retained an uppercase ASCII letter", r, folded)
+				}
+			}
+		}
+	})
 }

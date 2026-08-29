@@ -13,7 +13,7 @@ bindery pdf ./docs      # -> docs.pdf, one document, clickable links
 
 ## Conformance
 
-**651 of 652 CommonMark examples pass — 99.8%**, against specification 0.31.2,
+**652 of 652 CommonMark examples pass — 100.0%**, against specification 0.31.2,
 compared byte for byte against the reference output with no normalisation.
 
 ```bash
@@ -21,10 +21,18 @@ bindery spec              # the score, by section
 bindery spec --verbose    # a diff for every failing example
 ```
 
-Every section is at 100% except Links, at 89/90. The single failure is link
-labels needing *full* Unicode case folding, which Go's standard library does not
-have — see "Honest limits" below and the entry in `STDLIB.md`. It is not
-special-cased, on purpose.
+This was 651/652 for two milestones. The one gap was example 540: `[ẞ]`
+resolving against a `[SS]:` reference definition, which requires *full* Unicode
+case folding — capital sharp s (U+1E9E) folds to the two characters `"ss"`, and
+Go's standard library only has *simple* case folding, which maps one rune to
+one rune and cannot express that. `golang.org/x/text/cases` has the full tables
+and is exactly the dependency this project does not take.
+
+The fix, in `src/casefold.go`, is a table of 266 exceptions generated from the
+Unicode Consortium's own `CaseFolding.txt` — the code points where full folding
+disagrees with what `strings.ToLower` already gets right — layered on top of
+the standard library rather than replacing it. See `STDLIB.md` for how it was
+generated and verified.
 
 Doing this today usually means Node, npm, and several hundred transitive
 packages to turn text files into other text files. bindery is one static binary
@@ -157,7 +165,7 @@ slices and does not pool anything.
 
 **Read the speed result with these caveats, all of which matter.**
 
-- goldmark passes **652/652** CommonMark examples. bindery passes **651/652**.
+- Both bindery and goldmark pass 652/652 CommonMark examples.
 - goldmark supports extensions bindery does not implement at all: tables,
   strikethrough, task lists, footnotes, definition lists, typographer.
 - goldmark is a configurable library with a plugin architecture and an AST
@@ -201,18 +209,21 @@ deterministic, and that markup inside a code fence is never interpreted.
 
 Written as they become true, not at the end. So far:
 
-- **One CommonMark example fails**, and it is example 540: a link label written
-  `[ẞ]` should match a definition written `[SS]`, because the specification uses
-  full Unicode case folding. Go's standard library has only simple case mapping —
-  `strings.ToLower("ẞ")` is `"ß"`, and `strings.EqualFold` does simple folding —
-  and neither can turn one rune into two. The fix would be a third-party
-  dependency, so bindery fails the example rather than special-casing the
-  character to make a number look better.
-- **It is slower than the parser it replaces.** Roughly 18 MB/s over the whole
-  spec corpus and 27 MB/s over ordinary documentation Markdown, measured with
-  `go test -bench`. goldmark is several times faster. For a documentation site
-  of a few hundred files this is microseconds per page and does not matter, but
-  it is not a fast parser and is not claimed to be.
+- **Full Unicode case folding is a 266-entry exception table, not the real Unicode
+  algorithm.** Go's standard library has only simple case mapping, which cannot
+  express a fold from one rune into several — `casefold.go` covers exactly the
+  code points where that matters (generated from the Unicode Consortium's
+  `CaseFolding.txt`) and falls back to `strings.ToLower` everywhere else. It
+  closes every CommonMark example this project's suite exercises, but it is not
+  a general Unicode case-folding implementation and should not be mistaken for
+  one — `golang.org/x/text/cases` is the real thing, and is exactly the
+  dependency this project does not take.
+- **Speed is measured, not assumed, and it is not always in bindery's favour.**
+  See "Numbers" above: faster than goldmark on both benchmark corpora, and
+  meaningfully hungrier for memory on realistic prose (1.5× the allocations).
+  Read both numbers with the caveats listed there before treating either as a
+  verdict on which parser is "better" — they measure different things doing
+  different amounts of work.
 - No tables, task lists, strikethrough, footnotes or autolink extensions.
   bindery implements CommonMark, not GitHub Flavored Markdown.
 - **Front matter is a documented YAML subset**, not YAML: block mappings,

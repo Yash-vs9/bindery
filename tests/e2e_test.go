@@ -279,8 +279,17 @@ func TestRenderFormats(t *testing.T) {
 
 // TestSpecReportsConformance runs the CommonMark suite through the CLI and
 // checks the number the README publishes is the number the tool reports.
+//
+// This asserts full conformance -- 652 of 652. It has not always: for two
+// milestones this pinned 651/652 deliberately, so that reaching 652 would break
+// the build and force README.md to be updated in the same commit rather than
+// drifting from what the tool actually does. See casefold.go and the git
+// history for how the last example was closed.
 func TestSpecReportsConformance(t *testing.T) {
-	stdout, _, _ := run(t, "spec")
+	stdout, _, code := run(t, "spec")
+	if code != 0 {
+		t.Fatalf("bindery spec exited %d:\n%s", code, stdout)
+	}
 
 	scoreLine := regexp.MustCompile(`(\d+)/(\d+) \(([\d.]+)%\)`).FindStringSubmatch(stdout)
 	if scoreLine == nil {
@@ -291,8 +300,11 @@ func TestSpecReportsConformance(t *testing.T) {
 	if scoreLine[2] != "652" {
 		t.Errorf("suite size = %s, want 652 (CommonMark 0.31.2)", scoreLine[2])
 	}
-	if scoreLine[1] != "651" {
-		t.Errorf("passing = %s, want 651; the README publishes 651/652", scoreLine[1])
+	if scoreLine[1] != "652" {
+		t.Errorf("passing = %s, want 652 (full conformance); the README publishes 652/652", scoreLine[1])
+	}
+	if code != 0 {
+		t.Errorf("full conformance should exit 0, got %d", code)
 	}
 }
 

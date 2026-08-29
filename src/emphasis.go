@@ -272,6 +272,19 @@ func Parse(src string) *Document {
 
 // normalizeLabel folds a link label for lookup: case-insensitive, with runs of
 // whitespace collapsed to a single space.
+// normalizeLabel folds a link label for lookup: full Unicode case folding
+// (fullFold, in casefold.go) with runs of whitespace collapsed to one space.
+//
+// Simple strings.ToLower is not enough. CommonMark example 540 pairs "[SS]:" as
+// a reference definition with "[ẞ]" as the use, and those only compare equal
+// under full case folding -- ẞ (U+1E9E) folds to the two characters "ss", which
+// strings.ToLower cannot produce because it maps one rune to one rune.
 func normalizeLabel(s string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(s))), " ")
+	trimmed := strings.TrimSpace(s)
+	var sb strings.Builder
+	sb.Grow(len(trimmed))
+	for _, r := range trimmed {
+		sb.WriteString(fullFold(r))
+	}
+	return strings.Join(strings.Fields(sb.String()), " ")
 }
