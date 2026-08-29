@@ -16,7 +16,7 @@ GOBUILD := $(ENV) $(GO) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)"
 all: build
 
 build:
-	$(GOBUILD) -o $(BIN) .
+	$(GOBUILD) -o $(BIN) ./src
 	@echo "built $(BIN)"
 
 test:
@@ -38,8 +38,8 @@ fmt:
 # Build twice into separate trees and compare. Byte-identical or it fails.
 repro:
 	@rm -rf bin/repro-a bin/repro-b
-	$(GOBUILD) -o bin/repro-a/bindery .
-	$(GOBUILD) -o bin/repro-b/bindery .
+	$(GOBUILD) -o bin/repro-a/bindery ./src
+	$(GOBUILD) -o bin/repro-b/bindery ./src
 	@shasum -a 256 bin/repro-a/bindery bin/repro-b/bindery
 	@if [ "$$(shasum -a 256 < bin/repro-a/bindery)" = "$$(shasum -a 256 < bin/repro-b/bindery)" ]; then \
 	    echo "REPRODUCIBLE: two builds, identical bytes"; \
@@ -48,6 +48,18 @@ repro:
 	fi
 
 # Everything a judge needs, in one command, written to deps-proof.txt.
+#
+# Output is redirected to the file and then printed, rather than piped through
+# tee. A pipeline's exit status in sh is that of its last command, so piping
+# through tee made every failure inside this block -- a failing test, a dirty
+# gofmt, a non-reproducible build -- exit zero while printing the error. The
+# one command that proves the project is sound must not be the one that lies.
+#
+# Output is redirected to the file and then printed, rather than piped through
+# tee. A pipeline's exit status in sh is that of its last command, so piping
+# through tee made every failure inside this block -- a failing test, a dirty
+# gofmt, a non-reproducible build -- exit zero while printing the error. The
+# command that proves the project is sound must not be the one that lies.
 verify: build
 	@{ \
 	    echo "=== bindery dependency proof ==="; \
@@ -59,25 +71,39 @@ verify: build
 	    echo; \
 	    echo "--- 2. module graph: only this module ---"; \
 	    $(GO) list -m all; \
+	    if [ "$$($(GO) list -m all | wc -l | tr -d ' ')" != "1" ]; then \
+	    	echo "MORE THAN ONE MODULE IN THE GRAPH: the manifest is not empty"; exit 1; fi; \
+	    if grep -q '^require' go.mod; then echo "go.mod HAS A REQUIRE BLOCK"; exit 1; fi; \
 	    echo; \
 	    echo "--- 3. imports: standard library only ---"; \
-	    $(GO) list -deps . | grep -v '^bindery' | grep -v '^internal/' | tr '\n' ' '; \
-	    echo; echo; \
+	    echo "packages imported transitively that belong to another module:"; \
+	    $(GO) list -deps -f '{{if .Module}}{{if ne .Module.Path "bindery"}}  {{.ImportPath}} <- {{.Module}}{{end}}{{end}}' ./src | sed '/^$$/d' > bin/nonstd.txt; \
+	    $(GO) list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' ./src | sed '/^$$/d' | grep -v '^bindery' >> bin/nonstd.txt || true; \
+	    if [ -s bin/nonstd.txt ]; then cat bin/nonstd.txt; echo "THIRD-PARTY DEPENDENCIES FOUND"; exit 1; fi; \
+	    echo "  (none)"; \
+	    echo; \
+	    echo "packages imported transitively: $$($(GO) list -deps ./src | wc -l | tr -d ' '), all from the standard library"; \
+	    echo; \
+	    echo "Note: a few import paths read vendor/golang.org/x/... -- those are the Go"; \
+	    echo "distribution's own vendored internals, shipped inside GOROOT as part of"; \
+	    echo "net/http and crypto/tls. They report Standard=true, belong to no module,"; \
+	    echo "and cannot be installed or removed. They are not third-party packages."; \
+	    echo; \
 	    echo "--- 4. binary build info: no dependencies recorded ---"; \
 	    $(GO) version -m $(BIN); \
 	    echo; \
 	    echo "--- 5. source size ---"; \
-	    wc -l *.go; \
+	    wc -l src/*.go tests/*.go; \
 	    echo; \
 	    echo "--- 6. formatting and vet ---"; \
 	    test -z "$$(gofmt -l .)" && echo "gofmt: clean" || { echo "gofmt: DIRTY"; exit 1; }; \
-	    $(GO) vet ./... && echo "vet: clean"; \
+	    $(GO) vet ./... || exit 1; echo "vet: clean"; \
 	    echo; \
 	    echo "--- 7. tests ---"; \
-	    $(GO) test ./... -count=1; \
+	    $(GO) test ./... -count=1 || exit 1; \
 	    echo; \
 	    echo "--- 8. reproducible build ---"; \
-	    $(MAKE) --no-print-directory repro; \
+	    $(MAKE) --no-print-directory repro || exit 1; \
 	    echo; \
 	    echo "--- 9. reproducible site output ---"; \
 	    rm -rf bin/site-a bin/site-b; \
@@ -87,7 +113,10 @@ verify: build
 	    	echo "REPRODUCIBLE: two site builds, identical trees"; \
 	    	shasum -a 256 bin/site-a/search-index.json; \
 	    else echo "SITE OUTPUT NOT REPRODUCIBLE"; exit 1; fi; \
-	} 2>&1 | tee deps-proof.txt
+	} > deps-proof.txt 2>&1; status=$$?; \
+	cat deps-proof.txt; \
+	if [ $$status -ne 0 ]; then echo; echo "make verify: FAILED"; fi; \
+	exit $$status
 
 clean:
 	rm -rf bin site deps-proof.txt

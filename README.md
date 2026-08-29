@@ -53,23 +53,37 @@ make verify         # everything a reviewer needs, in one command
 
 ## Repository layout
 
-The event's suggested layout is advisory, and this repository follows it except
-in two places where Go requires otherwise. Both deviations are deliberate.
+```
+bindery/
+├── README.md            what it does, how to run it, honest limits
+├── STDLIB.md            every "I would normally import X, instead I used Y"
+├── Makefile             one command to a runnable artifact
+├── src/                 the source, all written this weekend
+│   ├── *.go             the program
+│   ├── *_test.go        unit tests, beside the code they test
+│   └── testdata/        the CommonMark conformance fixtures
+├── tests/               end-to-end tests: build the binary, drive it, assert
+├── go.mod               the manifest, with no require block
+├── deps-proof.txt       output showing zero third-party dependencies
+└── .zero-dep.toml       track letter and one-line pitch
+```
 
-| Suggested        | Here                       | Why |
-|------------------|----------------------------|-----|
-| `README.md`      | `README.md`                | — |
-| `STDLIB.md`      | `STDLIB.md`                | — |
-| `Makefile`       | `Makefile`                 | — |
-| manifest         | `go.mod`, no `require`     | — |
-| `deps-proof.txt` | `deps-proof.txt`           | — |
-| `.zero-dep.toml` | `.zero-dep.toml`           | — |
-| `src/`           | `*.go` in the repository root | Go abandoned GOPATH-style `src/` directories years ago. A Go project with `src/main.go` reads as another language's habit applied to Go. |
-| `tests/`         | `*_test.go` beside the code they test | Not a preference: Go requires test files to sit in the same directory and package as their subject. These tests exercise unexported identifiers — `parseBlocks`, `acceptKey`, `splitFrontMatter`, `slugify` — which a separate `tests/` package could not reach without exporting the entire internal surface to satisfy a directory name. |
+**Why the tests are in two places.** Go requires `_test.go` files to sit in the
+same package as the code they test, and the unit tests exercise unexported
+identifiers — `parseBlocks`, `acceptKey`, `tokenise`, `slugify`. A separate
+package cannot reach those without exporting the entire internal surface to
+satisfy a directory name, which would be a worse repository, not a better one.
+So the unit tests live in `src/` where the language puts them.
 
-The package is deliberately flat rather than split into `internal/` subpackages.
-For a single binary of this size, a deep package tree is the unidiomatic choice;
-files are named for what they hold instead:
+`tests/` holds the layer they cannot cover: that the documented build command
+produces a working artifact, that exit codes are what this README promises, that
+the dev server actually serves and actually reloads a file edited on disk, and
+that two builds of the same input produce identical bytes. Those tests know
+nothing about the internals. If every one of them passes, the tool works.
+
+Within `src/` the package is flat rather than split into `internal/`
+subpackages: for a single binary of this size a deep package tree is the
+unidiomatic choice, so files are named for what they hold instead.
 
 ```
 main.go              CLI: subcommands, flags, exit codes
@@ -81,6 +95,7 @@ render_html.go  render_ansi.go   two back ends over one model
 highlight.go         table-driven syntax highlighting
 frontmatter.go       the YAML subset
 toc.go               slugs and the table of contents
+search.go            the inverted index and BM25
 site.go  theme.go    discovery, building, the page shell
 serve.go  livereload.go  watch.go   the dev server, WebSocket, watcher
 spec.go              the CommonMark conformance runner

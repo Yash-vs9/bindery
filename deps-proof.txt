@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 07:13:07Z
+date (UTC): 2026-08-29 07:42:11Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -11,11 +11,19 @@ go 1.27
 bindery
 
 --- 3. imports: standard library only ---
-unsafe math/bits runtime errors sync/atomic sync io iter unicode unicode/utf8 bytes strings bufio syscall time context hash strconv crypto crypto/internal/fips140deps/godebug crypto/internal/fips140 crypto/internal/fips140/alias crypto/internal/fips140deps/byteorder crypto/internal/fips140deps/cpu crypto/internal/impl crypto/internal/fips140/sha256 crypto/internal/constanttime crypto/internal/fips140/subtle crypto/internal/fips140/sha3 crypto/internal/fips140/sha512 crypto/internal/fips140/hmac crypto/internal/fips140/check crypto/internal/fips140/aes crypto/internal/fips140deps/time crypto/internal/entropy/v1.0.0 path cmp slices io/fs os crypto/internal/sysrand crypto/internal/fips140/drbg math crypto/internal/fips140/aes/gcm crypto/fips140 crypto/internal/fips140only crypto/subtle crypto/cipher crypto/internal/boring/sig crypto/internal/boring crypto/sha1 crypto/sha256 embed encoding/base64 reflect encoding/binary fmt encoding/hex encoding/json/internal encoding/json/internal/jsonflags encoding/json/internal/jsonopts unicode/utf16 encoding/json/internal/jsonwire encoding/json/jsontext encoding encoding/base32 encoding/json/v2 flag html encoding/json maps path/filepath sort regexp/syntax regexp weak unique net/netip net/url text/template/parse text/template html/template mime vendor/golang.org/x/net/dns/dnsmessage net compress/flate hash/crc32 compress/gzip container/list crypto/aes crypto/des crypto/internal/fips140/nistec/fiat crypto/internal/fips140/nistec crypto/internal/fips140/ecdh crypto/internal/fips140/edwards25519/field math/rand/v2 crypto/internal/randutil crypto/internal/rand crypto/ecdh math/rand math/big crypto/elliptic crypto/internal/boring/bbig crypto/internal/fips140/bigmod crypto/internal/fips140/ecdsa crypto/internal/fips140cache crypto/sha3 crypto/internal/fips140hash crypto/sha512 encoding/asn1 vendor/golang.org/x/crypto/cryptobyte/asn1 vendor/golang.org/x/crypto/cryptobyte crypto/ecdsa crypto/internal/fips140/edwards25519 crypto/internal/fips140/ed25519 crypto/rand crypto/ed25519 crypto/internal/fips140/hkdf crypto/hkdf crypto/hmac crypto/internal/fips140/mlkem crypto/mlkem vendor/golang.org/x/crypto/internal/alias vendor/golang.org/x/crypto/chacha20 vendor/golang.org/x/crypto/internal/poly1305 vendor/golang.org/x/crypto/chacha20poly1305 crypto/hpke crypto/internal/fips140/tls12 crypto/internal/fips140/tls13 crypto/md5 crypto/internal/fips140/mldsa crypto/mldsa crypto/rc4 crypto/internal/fips140/rsa crypto/rsa crypto/tls/internal/fips140tls crypto/dsa crypto/x509/internal/macos crypto/x509/pkix encoding/pem crypto/x509 crypto/tls vendor/golang.org/x/text/transform log/internal log vendor/golang.org/x/text/unicode/bidi vendor/golang.org/x/text/secure/bidirule vendor/golang.org/x/text/unicode/norm vendor/golang.org/x/net/idna net/textproto vendor/golang.org/x/net/http/httpguts vendor/golang.org/x/net/http/httpproxy mime/quotedprintable mime/multipart net/http/httptrace net/http/internal net/http/internal/ascii vendor/golang.org/x/net/http2/hpack net/http/internal/httpcommon net/http/internal/httpsfv net/http/internal/http2 net/http os/signal 
+packages imported transitively that belong to another module:
+  (none)
+
+packages imported transitively: 206, all from the standard library
+
+Note: a few import paths read vendor/golang.org/x/... -- those are the Go
+distribution's own vendored internals, shipped inside GOROOT as part of
+net/http and crypto/tls. They report Standard=true, belong to no module,
+and cannot be installed or removed. They are not third-party packages.
 
 --- 4. binary build info: no dependencies recorded ---
 bin/bindery: go1.27.0
-	path	bindery
+	path	bindery/src
 	mod	bindery	(devel)	
 	build	-buildmode=exe
 	build	-compiler=gc
@@ -26,54 +34,58 @@ bin/bindery: go1.27.0
 	build	GOARM64=v8.0
 
 --- 5. source size ---
-     804 block.go
-     179 block_test.go
-     277 emphasis.go
-     413 frontmatter.go
-     146 frontmatter_test.go
-     323 highlight.go
-     124 highlight_test.go
-     111 html_block.go
-      89 html_block_test.go
-     371 inline.go
-      86 inline_test.go
-     499 link.go
-     165 linkref.go
-     107 linkref_test.go
-     110 list_test.go
-     295 livereload.go
-     340 main.go
-     131 main_test.go
-     189 markdown.go
-     258 render_ansi.go
-     311 render_html.go
-     184 scan.go
-     271 search.go
-     185 search_test.go
-     302 serve.go
-     304 serve_test.go
-     245 site.go
-     158 spec.go
-     125 spec_test.go
-      62 term.go
-     480 theme.go
-     116 toc.go
-     142 watch.go
-     193 watch_test.go
-    8095 total
+     804 src/block.go
+     179 src/block_test.go
+     277 src/emphasis.go
+     413 src/frontmatter.go
+     146 src/frontmatter_test.go
+     323 src/highlight.go
+     124 src/highlight_test.go
+     111 src/html_block.go
+      89 src/html_block_test.go
+     371 src/inline.go
+      86 src/inline_test.go
+     499 src/link.go
+     165 src/linkref.go
+     107 src/linkref_test.go
+     110 src/list_test.go
+     295 src/livereload.go
+     347 src/main.go
+     131 src/main_test.go
+     189 src/markdown.go
+     258 src/render_ansi.go
+      74 src/render_ansi_test.go
+     311 src/render_html.go
+     184 src/scan.go
+     271 src/search.go
+     185 src/search_test.go
+     302 src/serve.go
+     304 src/serve_test.go
+     245 src/site.go
+     158 src/spec.go
+     125 src/spec_test.go
+      62 src/term.go
+     480 src/theme.go
+     116 src/toc.go
+     114 src/toc_test.go
+     142 src/watch.go
+     193 src/watch_test.go
+     387 tests/e2e_test.go
+    8677 total
 
 --- 6. formatting and vet ---
 gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery	0.560s
+ok  	bindery/src	0.405s
+ok  	bindery/tests	1.824s
 
 --- 8. reproducible build ---
-CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery .
-CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-b/bindery .
-e624afec8a92f9d4fd16adee3175189b101c43b06cecc77c2edc1adb5e38194f  bin/repro-a/bindery
-e624afec8a92f9d4fd16adee3175189b101c43b06cecc77c2edc1adb5e38194f  bin/repro-b/bindery
+CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery ./src
+CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-b/bindery ./src
+a29e3d3bdf4e9a9a61346d328fc67e6a88d6d93d255db39ce3cae55697ca0c2d  bin/repro-a/bindery
+a29e3d3bdf4e9a9a61346d328fc67e6a88d6d93d255db39ce3cae55697ca0c2d  bin/repro-b/bindery
 REPRODUCIBLE: two builds, identical bytes
 
 --- 9. reproducible site output ---

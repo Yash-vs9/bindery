@@ -431,3 +431,30 @@ It was caught by `TestSearchIndexIsDeterministic`, which marshals the same index
 nine times and compares. It failed on the first run. `make verify` now builds
 the *site* twice and diffs the trees as well as hashing the binary, because the
 binary being reproducible turned out not to imply the output was.
+
+### A note on the proof itself
+
+`make verify` is the command a judge runs, so it is worth saying what it does
+and what it once did not.
+
+It asserts, and fails on: a `require` block in `go.mod`; more than one module in
+the graph; any imported package belonging to another module or reporting
+`Standard=false`; unformatted source; `go vet`; the unit and end-to-end suites;
+two builds of the binary differing; and two builds of the *site* differing.
+
+Two bugs were found in it by trying to break it deliberately.
+
+The first: everything was piped through `tee`, and a pipeline's exit status in
+`sh` is that of its last command. `tee` always succeeds, so every failure inside
+printed its error and exited zero. The output is now redirected to the file and
+printed afterwards, preserving the status.
+
+The second: the steps were separated by `;`, so a failing test printed FAIL and
+execution simply carried on to the next step. The block's status was whatever
+the last step returned. Each step now aborts.
+
+Both were found by injecting four faults — a failing unit test, a failing
+end-to-end test, a declared-but-unimported dependency, and unformatted source —
+and checking that the command actually failed. It did not, three times out of
+four. The one command that proves a project is sound must not be the one that
+lies, and the only way to know is to break it on purpose.

@@ -297,6 +297,16 @@ func cmdRender(args []string, stdout, stderr io.Writer) error {
 		return errUsage
 	}
 
+	// The format is validated before the file is read. A usage error should not
+	// depend on whether an unrelated path happens to exist, and reporting one
+	// without touching the disk is both faster and easier to reason about.
+	switch *format {
+	case "html", "json", "ansi":
+	default:
+		fmt.Fprintf(stderr, "bindery render: unknown format %q (want html, ansi or json)\n", *format)
+		return errUsage
+	}
+
 	src, err := os.ReadFile(fs.Arg(0))
 	if err != nil {
 		return err
@@ -316,9 +326,6 @@ func cmdRender(args []string, stdout, stderr io.Writer) error {
 		fmt.Fprintf(stdout, "%s\n", b)
 	case "ansi":
 		fmt.Fprint(stdout, RenderANSI(doc, terminalWidth(), colorEnabled(stdout)))
-	default:
-		fmt.Fprintf(stderr, "bindery render: unknown format %q\n", *format)
-		return errUsage
 	}
 	return nil
 }
