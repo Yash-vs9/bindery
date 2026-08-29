@@ -51,6 +51,42 @@ make test           # standard library test suite
 make verify         # everything a reviewer needs, in one command
 ```
 
+## Repository layout
+
+The event's suggested layout is advisory, and this repository follows it except
+in two places where Go requires otherwise. Both deviations are deliberate.
+
+| Suggested        | Here                       | Why |
+|------------------|----------------------------|-----|
+| `README.md`      | `README.md`                | — |
+| `STDLIB.md`      | `STDLIB.md`                | — |
+| `Makefile`       | `Makefile`                 | — |
+| manifest         | `go.mod`, no `require`     | — |
+| `deps-proof.txt` | `deps-proof.txt`           | — |
+| `.zero-dep.toml` | `.zero-dep.toml`           | — |
+| `src/`           | `*.go` in the repository root | Go abandoned GOPATH-style `src/` directories years ago. A Go project with `src/main.go` reads as another language's habit applied to Go. |
+| `tests/`         | `*_test.go` beside the code they test | Not a preference: Go requires test files to sit in the same directory and package as their subject. These tests exercise unexported identifiers — `parseBlocks`, `acceptKey`, `splitFrontMatter`, `slugify` — which a separate `tests/` package could not reach without exporting the entire internal surface to satisfy a directory name. |
+
+The package is deliberately flat rather than split into `internal/` subpackages.
+For a single binary of this size, a deep package tree is the unidiomatic choice;
+files are named for what they hold instead:
+
+```
+main.go              CLI: subcommands, flags, exit codes
+markdown.go          the document model shared by both parser passes
+block.go  scan.go    phase 1: block structure, line scanners
+inline.go  emphasis.go  link.go  linkref.go  html_block.go
+                     phase 2: inlines, the delimiter stack, links, raw HTML
+render_html.go  render_ansi.go   two back ends over one model
+highlight.go         table-driven syntax highlighting
+frontmatter.go       the YAML subset
+toc.go               slugs and the table of contents
+site.go  theme.go    discovery, building, the page shell
+serve.go  livereload.go  watch.go   the dev server, WebSocket, watcher
+spec.go              the CommonMark conformance runner
+term.go              ANSI styling, NO_COLOR, TTY detection
+```
+
 ## Dependency proof
 
 ```bash
