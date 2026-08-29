@@ -131,6 +131,71 @@ Under construction during the event window. Milestones, in order:
 - [x] **M5** search index
 - [ ] **M6** fuzzing, benchmarks, documentation
 
+## Numbers
+
+Measured on an Apple M-series laptop, Go 1.27.0, `go test -bench -count=5`, all
+five runs within 1% of each other. Reproduce with `make bench`.
+
+Two corpora. The **spec corpus** is every Markdown sample in the CommonMark
+suite concatenated — about 100KB of deliberately awkward input, which is harder
+than real documentation and is meant to be. The **prose corpus** is this
+project's own README, STDLIB.md and docs: 35KB of the input a documentation tool
+actually sees.
+
+| | bindery | goldmark | |
+|---|---|---|---|
+| spec corpus, parse + render | **550 µs** · 29.4 MB/s | 855 µs · 19.0 MB/s | bindery 1.55× faster |
+| prose corpus, parse + render | **410 µs** · 84.5 MB/s | 462 µs · 75.1 MB/s | bindery 1.13× faster |
+| spec corpus, memory | 833 KB · 8,340 allocs | 858 KB · 7,374 allocs | comparable |
+| prose corpus, memory | 818 KB · 4,146 allocs | **535 KB** · 2,758 allocs | **goldmark 1.5× leaner** |
+
+So: bindery is faster on both corpora, and allocates substantially more on
+realistic prose. That is the honest shape of it, and the memory result is the
+one worth taking seriously — the parser builds a full block tree with per-node
+slices and does not pool anything.
+
+**Read the speed result with these caveats, all of which matter.**
+
+- goldmark passes **652/652** CommonMark examples. bindery passes **651/652**.
+- goldmark supports extensions bindery does not implement at all: tables,
+  strikethrough, task lists, footnotes, definition lists, typographer.
+- goldmark is a configurable library with a plugin architecture and an AST
+  designed for third-party extension. bindery is a tool with a parser inside it.
+- Being faster is partly a consequence of doing less. This is not evidence that
+  bindery is a better parser, only that it is a smaller one.
+- One machine, one Go version, two corpora. Treat it as an order of magnitude,
+  not a ranking.
+
+The comparison harness was built in a throwaway module **outside this
+repository** and is not shipped; measuring against the package you replaced
+requires installing it, which is why it lives elsewhere and why `go.mod` here
+stays empty. Rebuilding it takes about a minute and the method is described in
+STDLIB.md.
+
+### Other measurements
+
+| | |
+|---|---|
+| Full site build, 3 pages | 3–4 ms |
+| Reload after a save (parse, render, notify) | ~115 µs plus the watcher's poll interval |
+| Search index for this site | 79 µs, 7.8 KB of JSON |
+| Syntax highlighting | 45 MB/s |
+| Whole 652-example conformance suite | 722 µs |
+
+### Fuzzing
+
+Ten fuzz targets, **17.9 million executions**, no crashes and no hangs.
+
+Being straight about what that means: this sweep found nothing. The real bugs
+this weekend were found by table-driven tests and by deliberately injecting
+faults into `make verify` to see whether it noticed. Fuzzing is evidence the
+parsers do not fall over on hostile input, which is worth having, and it is not
+evidence that they are correct.
+
+Three of the targets assert properties rather than mere survival: that no input
+can escape an HTML attribute the renderer emits, that parsing and rendering are
+deterministic, and that markup inside a code fence is never interpreted.
+
 ## Honest limits
 
 Written as they become true, not at the end. So far:

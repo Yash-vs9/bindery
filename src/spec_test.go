@@ -92,34 +92,3 @@ func TestUnicodeCaseFoldingIsSimpleNotFull(t *testing.T) {
 		t.Errorf("case folding behaviour changed: got %q, want %q", got, want)
 	}
 }
-
-// BenchmarkParseSpec measures throughput over the whole suite, which is a
-// reasonable stand-in for mixed real-world Markdown.
-func BenchmarkParseSpec(b *testing.B) {
-	examples, err := loadSpec()
-	if err != nil {
-		b.Fatal(err)
-	}
-	var corpus strings.Builder
-	for _, e := range examples {
-		corpus.WriteString(e.Markdown)
-		corpus.WriteString("\n\n")
-	}
-	src := corpus.String()
-
-	b.SetBytes(int64(len(src)))
-	b.ReportAllocs()
-	for b.Loop() {
-		RenderHTML(Parse(src))
-	}
-}
-
-func BenchmarkParseREADME(b *testing.B) {
-	src := strings.Repeat("# Heading\n\nA paragraph with *emphasis*, `code`, and a "+
-		"[link](https://example.com).\n\n- item one\n- item two\n\n```go\nfunc main() {}\n```\n\n", 50)
-	b.SetBytes(int64(len(src)))
-	b.ReportAllocs()
-	for b.Loop() {
-		RenderHTML(Parse(src))
-	}
-}

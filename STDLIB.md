@@ -458,3 +458,49 @@ end-to-end test, a declared-but-unimported dependency, and unformatted source �
 and checking that the command actually failed. It did not, three times out of
 four. The one command that proves a project is sound must not be the one that
 lies, and the only way to know is to break it on purpose.
+
+### How the benchmark comparison was made
+
+The rules ask for honest numbers, and specifically for saying so if the
+hand-written thing is slower than the package it replaces. Knowing that requires
+measuring against the package — which requires installing it.
+
+So the comparison harness lives in a throwaway module **outside this
+repository**: a `go.mod` in a temporary directory that pulls in
+`github.com/yuin/goldmark`, loads the identical corpus, and runs the identical
+benchmark shape. Nothing about it is shipped, nothing about it appears in this
+repository, and `go.mod` here stays empty. It takes about a minute to rebuild:
+
+```
+mkdir /tmp/mdbench && cd /tmp/mdbench
+go mod init mdbench && go get github.com/yuin/goldmark
+# copy src/testdata/spec.json, concatenate the markdown fields, benchmark
+# goldmark.New().Convert over the result
+```
+
+Both sides were run five times on the same machine, same Go version, same two
+corpora. The result — bindery faster on both, and allocating half again as much
+memory on realistic prose — is in README.md with the caveats it needs, the most
+important being that goldmark passes 652/652 where bindery passes 651/652 and
+implements six extensions bindery does not. Being faster is partly a consequence
+of doing less.
+
+### Fuzzing
+
+**Instead of** `fast-check` / `jsverify` / `hypothesis`
+**I used** Go's native `go test -fuzz`, stable since 1.18.
+
+Ten targets, run by `make fuzz`. Seven assert survival — arbitrary input must
+not panic or hang, which for a hand-written parser is not a given. Three assert
+properties: that no input can escape an HTML attribute the renderer emits, that
+parsing and rendering are deterministic, and that markup inside a code fence is
+never interpreted. The first of those matters because Markdown is routinely
+rendered from untrusted sources.
+
+Coverage-guided fuzzing, a managed corpus and shrinking are all in the toolchain
+already. There is nothing to install.
+
+**Honest result:** 17.9 million executions found nothing. The bugs this weekend
+were found by table-driven tests and by injecting faults into `make verify` to
+check that it noticed. Fuzzing is evidence the parsers do not fall over, not
+evidence that they are right.

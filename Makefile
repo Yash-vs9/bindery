@@ -5,13 +5,14 @@
 # and CGO_ENABLED=0 keeps the host toolchain out of it. The version string is a
 # source constant, never a linker-injected timestamp.
 
-GO      ?= go
+GO       ?= go
+FUZZTIME ?= 40s
 BIN     := bin/bindery
 ENV     := CGO_ENABLED=0 GOFLAGS=-mod=readonly
 LDFLAGS := -s -w -buildid=
 GOBUILD := $(ENV) $(GO) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)"
 
-.PHONY: all build test fuzz spec dev repro verify fmt clean
+.PHONY: all build test fuzz bench spec dev repro verify fmt clean
 
 all: build
 
@@ -23,7 +24,14 @@ test:
 	$(GO) test ./... -count=1
 
 fuzz:
-	$(GO) test -run=XXX -fuzz=Fuzz -fuzztime=60s ./...
+	@for t in $$($(GO) test ./src -list 'Fuzz.*' | grep '^Fuzz'); do \
+		printf '%-24s ' "$$t"; \
+		$(GO) test ./src -run=XXX -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) > /tmp/$$t.log 2>&1 \
+			&& echo "pass" || { echo "FAILED"; tail -20 /tmp/$$t.log; exit 1; }; \
+	done
+
+bench:
+	$(GO) test ./src -run=XXX -bench=. -benchmem -count=5
 
 spec: build
 	./$(BIN) spec

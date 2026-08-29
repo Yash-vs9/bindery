@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 07:42:11Z
+date (UTC): 2026-08-29 08:16:58Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -34,6 +34,7 @@ bin/bindery: go1.27.0
 	build	GOARM64=v8.0
 
 --- 5. source size ---
+     159 src/bench_test.go
      804 src/block.go
      179 src/block_test.go
      277 src/emphasis.go
@@ -53,6 +54,7 @@ bin/bindery: go1.27.0
      347 src/main.go
      131 src/main_test.go
      189 src/markdown.go
+     126 src/property_test.go
      258 src/render_ansi.go
       74 src/render_ansi_test.go
      311 src/render_html.go
@@ -63,7 +65,7 @@ bin/bindery: go1.27.0
      304 src/serve_test.go
      245 src/site.go
      158 src/spec.go
-     125 src/spec_test.go
+      94 src/spec_test.go
       62 src/term.go
      480 src/theme.go
      116 src/toc.go
@@ -71,15 +73,15 @@ bin/bindery: go1.27.0
      142 src/watch.go
      193 src/watch_test.go
      387 tests/e2e_test.go
-    8677 total
+    8931 total
 
 --- 6. formatting and vet ---
 gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery/src	0.405s
-ok  	bindery/tests	1.824s
+ok  	bindery/src	0.801s
+ok  	bindery/tests	2.820s
 
 --- 8. reproducible build ---
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery ./src
