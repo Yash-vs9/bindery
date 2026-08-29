@@ -8,6 +8,7 @@ bindery dev ./docs      # localhost:8080, live reload on save
 bindery build ./docs    # -> ./site, static HTML, deploy anywhere
 bindery spec            # CommonMark conformance, reported honestly
 bindery render FILE.md  # one file to stdout (--format html|ansi|json)
+bindery pdf ./docs      # -> docs.pdf, one document, clickable links
 ```
 
 ## Conformance
@@ -233,6 +234,13 @@ Written as they become true, not at the end. So far:
   searchable.
 - The search index is fetched from an absolute `/search-index.json`, so a site
   served from a subdirectory will not find it.
+- **PDF output is Latin text only.** It uses the base-14 fonts every reader
+  already has, which is what removes font parsing and rasterisation from the
+  problem — and what limits it. Smart quotes and dashes are transliterated;
+  CJK, Cyrillic and emoji become question marks. Showing them would mean
+  embedding a font, which means parsing one.
+- **PDF layout has no widow or orphan control** beyond keeping a heading with
+  the two lines that follow it, and no hyphenation.
 - **Display width is approximated.** Wide characters and combining marks are
   handled by range checks rather than the Unicode width tables, so some emoji
   sequences and rare scripts will misalign.

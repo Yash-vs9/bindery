@@ -70,6 +70,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cmdBuild(args[1:], stdout, stderr)
 	case "spec":
 		err = cmdSpec(args[1:], stdout, stderr)
+	case "pdf":
+		err = cmdPDF(args[1:], stdout, stderr)
 	case "render":
 		err = cmdRender(args[1:], stdout, stderr)
 	case "version":
@@ -106,6 +108,7 @@ commands:
   dev    [dir]       serve dir at localhost with live reload (default ".")
                      flags: --port
   build  [dir]       render dir to static HTML (default ".")
+  pdf    [dir]       render dir to a single PDF (flags: --out, --title)
   spec               run the CommonMark conformance suite and report the score
   render FILE.md     render a single file to stdout
   version            print version information
@@ -248,6 +251,39 @@ func cmdBuild(args []string, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "%s %d page%s in %s -> %s\n",
 		tick(stdout), len(site.Pages), plural(len(site.Pages)),
 		time.Since(start).Round(time.Millisecond), *out)
+	return nil
+}
+
+// cmdPDF renders a directory of Markdown as one PDF.
+func cmdPDF(args []string, stdout, stderr io.Writer) error {
+	fs := newFlagSet("pdf", stderr)
+	out := fs.String("out", "docs.pdf", "file to write")
+	title := fs.String("title", "", "cover title (defaults to the first page's title)")
+	noCover := fs.Bool("no-cover", false, "omit the cover page")
+	if err := parse(fs, args); err != nil {
+		return errUsage
+	}
+
+	start := time.Now()
+	site, err := LoadSite(dirArg(fs), false)
+	if err != nil {
+		return err
+	}
+
+	cover := *title
+	if cover == "" && len(site.Pages) > 0 {
+		cover = site.Pages[0].Title
+	}
+
+	pdf := RenderPDF(site, cover, !*noCover)
+	if err := os.WriteFile(*out, pdf, 0o644); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(stdout, "%s %d page%s -> %s %s\n",
+		tick(stdout), len(site.Pages), plural(len(site.Pages)), *out,
+		dim(stdout, fmt.Sprintf("(%s, %s)", formatBytes(len(pdf)),
+			time.Since(start).Round(time.Millisecond))))
 	return nil
 }
 

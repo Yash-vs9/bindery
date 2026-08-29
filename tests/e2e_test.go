@@ -385,3 +385,66 @@ func read(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+// TestPDFCommand drives "bindery pdf" the way a user does and checks the file
+// it leaves on disk is one a reader will open.
+func TestPDFCommand(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "index.md"), "# Handbook\n\nBody text.\n\n- one\n- two\n")
+	write(t, filepath.Join(dir, "guide.md"), "# Guide\n\n```go\nfunc main() {}\n```\n")
+	out := filepath.Join(t.TempDir(), "handbook.pdf")
+
+	stdout, stderr, code := run(t, "pdf", dir, "--out", out, "--title", "Handbook")
+	if code != 0 {
+		t.Fatalf("bindery pdf exited %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "handbook.pdf") {
+		t.Errorf("stdout did not name the output file: %q", stdout)
+	}
+
+	body, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("no PDF was written: %v", err)
+	}
+	if len(body) < 1000 {
+		t.Errorf("PDF is %d bytes, which is too small to contain the input", len(body))
+	}
+	if !bytes.HasPrefix(body, []byte("%PDF-")) {
+		t.Error("output is not a PDF")
+	}
+	if !bytes.HasSuffix(body, []byte("%%EOF\n")) {
+		t.Error("PDF is truncated")
+	}
+	// Two pages of content plus a cover.
+	if pages := bytes.Count(body, []byte("/Type /Page ")); pages != 3 {
+		t.Errorf("got %d pages, want 3 (cover plus two documents)", pages)
+	}
+}
+
+// TestPDFCommandIsReproducible checks the claim end to end rather than in a
+// unit test: the same input, through the real binary, twice.
+func TestPDFCommandIsReproducible(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "index.md"), "# T\n\nText.\n")
+
+	outDir := t.TempDir()
+	first := filepath.Join(outDir, "a.pdf")
+	second := filepath.Join(outDir, "b.pdf")
+	for _, out := range []string{first, second} {
+		if _, stderr, code := run(t, "pdf", dir, "--out", out); code != 0 {
+			t.Fatalf("bindery pdf exited %d: %s", code, stderr)
+		}
+	}
+
+	a, err := os.ReadFile(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Error("two runs produced different PDFs")
+	}
+}

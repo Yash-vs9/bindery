@@ -20,4 +20,3 @@ the [edge cases](guide/edge-cases.md) the parser handles.
 ---
 
 Built for the Zero Dependency Hackathon, August 2026.
-//edit

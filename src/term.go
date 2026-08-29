@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -59,4 +60,19 @@ func tick(w io.Writer) string  { return style(w, "ok", ansiGreen, ansiBold) }
 func cross(w io.Writer) string { return style(w, "fail", ansiRed, ansiBold) }
 func dim(w io.Writer, s string) string {
 	return style(w, s, ansiDim)
+}
+
+// formatBytes renders a byte count the way a person reads it. This is the whole
+// of what pretty-bytes and go-humanize are installed for.
+func formatBytes(n int) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for size := int64(n) / unit; size >= unit; size /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGT"[exp])
 }

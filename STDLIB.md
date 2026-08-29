@@ -12,6 +12,15 @@ guessing.
 
 Listed first, because it matters most.
 
+- **Base-14 font metrics** (`src/pdfmetrics.go`) — advance widths for
+  Helvetica, Helvetica-Bold, Helvetica-Oblique and Courier, printable ASCII
+  only. Measured data, not code, and generated from the published Adobe Font
+  Metrics rather than transcribed: the AFM files were parsed and the Go tables
+  emitted from them. Cross-checked against known values — Helvetica `M` is
+  833/1000 em, Courier is uniformly 600 — and `TestPDFFontMetrics` asserts both,
+  so a corrupted table fails the build rather than producing a subtly
+  misaligned document.
+
 - **The RFC 6455 WebSocket accept GUID** (`258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
   and the worked example that verifies it, both from RFC 6455 §1.3. A constant
   and a test vector defined by the specification, transcribed from the RFC text
@@ -504,3 +513,51 @@ already. There is nothing to install.
 were found by table-driven tests and by injecting faults into `make verify` to
 check that it noticed. Fuzzing is evidence the parsers do not fall over, not
 evidence that they are right.
+
+### PDF generation
+**Instead of** `gofpdf` / `pdfkit` / `jsPDF` / shelling out to `wkhtmltopdf`
+**I used** `src/pdf.go`, a PDF writer built on `bytes`, `fmt` and `strconv`.
+
+A PDF has a binary reputation and a text format. It is a sequence of numbered
+objects, a cross-reference table giving the byte offset of each, and a trailer
+pointing at the table. Page content is a small stack language: set a font, set a
+position, show a string. Everything in the writer is string building and
+arithmetic — no compression, no binary structures, no encoding beyond escaping
+three characters inside a literal string.
+
+What makes a dependency-free PDF writer practical at all is the **base-14
+fonts**. Every conforming reader already has Helvetica, Courier and Times, so a
+document that uses them embeds no font programme. No font parsing, no hinting,
+no rasterisation — which is exactly the work that makes a PDF library large. The
+only thing still required is advance widths, in order to break lines, and those
+are measured data.
+
+The layout engine handles headings, wrapped paragraphs with mixed styles, code
+blocks on tinted panels that survive a page break, bullet and ordered lists,
+blockquotes with a rule drawn after the content so its height is known, thematic
+breaks, page numbers, a cover, and clickable link annotations for absolute URLs.
+
+**Two bugs worth recording, both found by looking at the output rather than by a
+test.** Soft line breaks lost their space — "live reload. One binary" came out
+as "live reload.One binary" — because spacing is stateful and a plain recursion
+over inline nodes lost that state at every level; it is a `wordBuilder` struct
+now. And the space before a run of inline code was more than twice as wide as a
+normal space, because the gap was measured in the *following* word's font and
+Courier's space is 600/1000 em against Helvetica's 278. A space belongs to the
+text before it.
+
+**Cost, and it is a real one:** base-14 fonts cover Latin text. Smart quotes and
+dashes are transliterated, and anything else — CJK, Cyrillic, emoji — becomes a
+question mark. Showing those would mean embedding a font, which means parsing
+one. The README says so plainly, and `TestPDFNonASCII` asserts the behaviour
+rather than leaving it to be discovered.
+
+There is deliberately no `/Info` dictionary. The obvious thing to put in one is
+a creation date, and a timestamp would make two renders of the same input differ
+— breaking the reproducibility claimed elsewhere. `TestPDFIsDeterministic` and an
+end-to-end test through the real binary both check it.
+
+`TestPDFCrossReferenceTable` is the test that matters most: it walks the
+cross-reference table and confirms every offset lands exactly on its object
+header. An offset wrong by a single byte makes the file unopenable while every
+other structural check still passes.
