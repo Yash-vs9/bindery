@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 06:19:46Z
+date (UTC): 2026-08-29 07:13:07Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -48,28 +48,34 @@ bin/bindery: go1.27.0
      258 render_ansi.go
      311 render_html.go
      184 scan.go
-     284 serve.go
+     271 search.go
+     185 search_test.go
+     302 serve.go
      304 serve_test.go
-     231 site.go
+     245 site.go
      158 spec.go
      125 spec_test.go
       62 term.go
-     235 theme.go
+     480 theme.go
      116 toc.go
      142 watch.go
      193 watch_test.go
-    7362 total
+    8095 total
 
 --- 6. formatting and vet ---
 gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery	0.805s
+ok  	bindery	0.560s
 
 --- 8. reproducible build ---
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery .
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-b/bindery .
-d26000ddbeab1561bbc6f25aec97ace736ef1ef6d1dd23d5f3c00db3ec89c1ba  bin/repro-a/bindery
-d26000ddbeab1561bbc6f25aec97ace736ef1ef6d1dd23d5f3c00db3ec89c1ba  bin/repro-b/bindery
+e624afec8a92f9d4fd16adee3175189b101c43b06cecc77c2edc1adb5e38194f  bin/repro-a/bindery
+e624afec8a92f9d4fd16adee3175189b101c43b06cecc77c2edc1adb5e38194f  bin/repro-b/bindery
 REPRODUCIBLE: two builds, identical bytes
+
+--- 9. reproducible site output ---
+REPRODUCIBLE: two site builds, identical trees
+71be2382df4add954c03bd31e3780da7dd69d2c0ebe2d8bcfe4a71c87ae357a8  bin/site-a/search-index.json

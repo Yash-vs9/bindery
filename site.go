@@ -212,8 +212,22 @@ func (s *Site) Page(urlPath string) (*Page, bool) {
 	return nil, false
 }
 
+// SearchIndexName is where the search index is written and fetched from.
+const SearchIndexName = "search-index.json"
+
 // Build writes the whole site to outDir.
 func (s *Site) Build(outDir string, live bool) error {
+	index, err := BuildSearchIndex(s).JSON()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(outDir, SearchIndexName), index, 0o644); err != nil {
+		return err
+	}
+
 	for _, p := range s.Pages {
 		target := filepath.Join(outDir, filepath.FromSlash(p.OutPath))
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

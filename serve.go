@@ -102,8 +102,26 @@ func (s *Server) Rebuild() error {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /__bindery/live", s.hub.Handle)
+	mux.HandleFunc("GET /"+SearchIndexName, s.serveSearchIndex)
 	mux.HandleFunc("GET /", s.servePage)
 	return mux
+}
+
+// serveSearchIndex builds and serves the search index.
+//
+// It is built per request rather than cached alongside the site. Indexing a
+// documentation corpus takes single-digit milliseconds, and a cache would be a
+// second thing to invalidate on rebuild in a program whose entire purpose is
+// staying current.
+func (s *Server) serveSearchIndex(w http.ResponseWriter, r *http.Request) {
+	body, err := BuildSearchIndex(s.Site()).JSON()
+	if err != nil {
+		http.Error(w, "index failed", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	serveContent(w, r, body)
 }
 
 // servePage serves a rendered page, or a file from the source directory.

@@ -2,6 +2,8 @@ package main
 
 import (
 	"html/template"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -41,6 +43,7 @@ func renderPage(s *Site, p *Page, live bool) (string, error) {
 		Live     bool
 		Style    template.CSS
 		Script   template.JS
+		SearchJS template.JS
 	}{
 		Title:    p.Title,
 		SiteName: "docs",
@@ -50,6 +53,7 @@ func renderPage(s *Site, p *Page, live bool) (string, error) {
 		Live:     live,
 		Style:    template.CSS(pageCSS),
 		Script:   template.JS(pageScript),
+		SearchJS: template.JS(stopWordPrelude() + searchScript),
 	}
 	if err := pageTemplate().Execute(&sb, data); err != nil {
 		return "", err
@@ -69,6 +73,8 @@ const pageHTML = `<!DOCTYPE html>
 <div class="layout">
 <nav class="sidebar">
 <div class="brand">{{.SiteName}}</div>
+<input id="bindery-search" type="search" placeholder="Search    /" autocomplete="off" spellcheck="false">
+<div id="bindery-results" hidden></div>
 <ul>
 {{range .Nav}}<li><a href="{{.URL}}"{{if .Current}} class="current"{{end}}>{{.Title}}</a>
 {{if .Current}}{{if $.TOC}}<ul class="toc">
@@ -83,6 +89,7 @@ const pageHTML = `<!DOCTYPE html>
 </article>
 </main>
 </div>
+<script>{{.SearchJS}}</script>
 {{if .Live}}<script>{{.Script}}</script>{{end}}
 </body>
 </html>
@@ -160,6 +167,45 @@ body {
 }
 .sidebar a:hover { background: var(--code-bg); }
 .sidebar a.current { color: var(--accent); font-weight: 600; }
+#bindery-search {
+  width: 100%;
+  margin-bottom: .9rem;
+  padding: .4rem .55rem;
+  font: inherit;
+  font-size: .88rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+#bindery-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#bindery-results {
+  margin: -.5rem 0 .9rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+#bindery-results .hit {
+  display: block;
+  padding: .45rem .6rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--fg);
+  text-decoration: none;
+}
+#bindery-results .hit:last-child { border-bottom: 0; }
+#bindery-results .hit:hover, #bindery-results .hit.active { background: var(--code-bg); }
+#bindery-results .hit-title { font-size: .87rem; font-weight: 600; }
+#bindery-results .hit-crumb { color: var(--muted); font-weight: 400; }
+#bindery-results .hit-preview {
+  font-size: .8rem;
+  color: var(--muted);
+  margin-top: .12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#bindery-results .empty { padding: .5rem .6rem; font-size: .84rem; color: var(--muted); }
 .toc { margin: .1rem 0 .5rem; padding-left: .55rem; border-left: 1px solid var(--rule); }
 .toc a { font-size: .87rem; color: var(--muted); padding: .18rem .5rem; }
 .toc a:hover { color: var(--fg); }
@@ -231,5 +277,204 @@ const pageScript = `
     };
   }
   connect();
+})();
+`
+
+// stopWordPrelude emits the stop-word list as JavaScript.
+//
+// The list is generated from the Go map rather than written out twice, so that
+// half of the tokeniser rule has exactly one source of truth. Two hand-kept
+// copies would drift, and the symptom of drift is a query that silently returns
+// nothing.
+//
+// The output is sorted so that two builds of the same source produce identical
+// bytes, which the reproducible-build claim depends on.
+func stopWordPrelude() string {
+	words := make([]string, 0, len(stopWords))
+	for word := range stopWords {
+		words = append(words, word)
+	}
+	sort.Strings(words)
+
+	var sb strings.Builder
+	sb.WriteString("var BINDERY_STOP = {")
+	for i, word := range words {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.Quote(word))
+		sb.WriteString(":1")
+	}
+	sb.WriteString("};\n")
+	return sb.String()
+}
+
+// searchScript is the client half of search: it fetches the index, ranks with
+// BM25, and renders results. No library, and no framework.
+//
+// The tokeniser here must agree exactly with tokenise() in search.go:
+//
+//	lowercase, split on non-letter/non-digit, drop tokens shorter than two
+//	characters, drop stop words
+//
+// Fixtures both sides agree on, from TestTokeniseFixtures:
+//
+//	"Hello, World!"        -> ["hello","world"]
+//	"snake_case_name"      -> ["snake","case","name"]
+//	"v1.27 and Go1.27"     -> ["v1","27","go1","27"]
+//	"CJK 日本語テキスト"     -> ["cjk","日本語テキスト"]
+//	"emoji 🎉 party"        -> ["emoji","party"]
+//	"C++ and C#"           -> []
+//	"a is the of"          -> []
+//
+// Verified: both implementations were run against all thirteen fixtures in
+// TestTokeniseFixtures and agreed on every one.
+//
+// Reminder: Go raw strings are backtick-delimited, so no template literals.
+const searchScript = `
+(function () {
+  var input = document.getElementById("bindery-search");
+  var panel = document.getElementById("bindery-results");
+  if (!input || !panel) return;
+
+  var index = null, pending = null, hits = [], active = -1;
+  var K1 = 1.2, B = 0.75, MAX_HITS = 8;
+
+  function tokenize(text) {
+    return text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(function (t) {
+      return t.length >= 2 && !BINDERY_STOP[t];
+    });
+  }
+
+  function load() {
+    if (index || pending) return pending;
+    pending = fetch("/search-index.json")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { index = data; return data; })
+      .catch(function () { return null; });
+    return pending;
+  }
+
+  // Postings for a term: an exact match, plus prefix matches so that typing
+  // "pars" finds "parser" before the word is finished.
+  function postingsFor(term, isLast) {
+    var out = index.terms[term] ? index.terms[term].slice() : [];
+    if (!isLast || term.length < 2) return out;
+    var keys = Object.keys(index.terms);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i] !== term && keys[i].indexOf(term) === 0) {
+        out = out.concat(index.terms[keys[i]]);
+      }
+    }
+    return out;
+  }
+
+  function search(query) {
+    var terms = tokenize(query);
+    if (!terms.length) return [];
+    var total = index.docs.length, scores = {};
+
+    terms.forEach(function (term, i) {
+      var postings = postingsFor(term, i === terms.length - 1);
+      var df = postings.length;
+      if (!df) return;
+      var idf = Math.log(1 + (total - df + 0.5) / (df + 0.5));
+      postings.forEach(function (p) {
+        var doc = index.docs[p[0]], tf = p[1];
+        var norm = 1 - B + B * (doc.n / index.avg);
+        scores[p[0]] = (scores[p[0]] || 0) + idf * tf * (K1 + 1) / (tf + K1 * norm);
+      });
+    });
+
+    return Object.keys(scores)
+      .map(function (id) { return { doc: index.docs[id], score: scores[id] }; })
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, MAX_HITS);
+  }
+
+  function render() {
+    if (!hits.length) {
+      panel.innerHTML = "<div class=\"empty\">No matches</div>";
+      panel.hidden = false;
+      return;
+    }
+    panel.innerHTML = "";
+    hits.forEach(function (hit, i) {
+      var a = document.createElement("a");
+      a.className = "hit" + (i === active ? " active" : "");
+      a.href = hit.doc.u;
+
+      var title = document.createElement("div");
+      title.className = "hit-title";
+      title.textContent = hit.doc.t;
+      if (hit.doc.h) {
+        var crumb = document.createElement("span");
+        crumb.className = "hit-crumb";
+        crumb.textContent = " \u203a " + hit.doc.h;
+        title.appendChild(crumb);
+      }
+
+      var preview = document.createElement("div");
+      preview.className = "hit-preview";
+      preview.textContent = hit.doc.p || "";
+
+      a.appendChild(title);
+      a.appendChild(preview);
+      panel.appendChild(a);
+    });
+    panel.hidden = false;
+  }
+
+  function close() {
+    panel.hidden = true;
+    hits = [];
+    active = -1;
+  }
+
+  function update() {
+    var query = input.value.trim();
+    if (!query) { close(); return; }
+    load().then(function () {
+      if (!index) { close(); return; }
+      hits = search(query);
+      active = -1;
+      render();
+    });
+  }
+
+  var timer = null;
+  input.addEventListener("input", function () {
+    clearTimeout(timer);
+    timer = setTimeout(update, 90);
+  });
+  input.addEventListener("focus", load);
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { close(); input.blur(); return; }
+    if (!hits.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      active = (active + 1) % hits.length;
+      render();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      active = (active - 1 + hits.length) % hits.length;
+      render();
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      location.href = hits[active].doc.u;
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== input) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!panel.contains(e.target) && e.target !== input) close();
+  });
 })();
 `

@@ -113,7 +113,7 @@ Under construction during the event window. Milestones, in order:
 - [x] **M2** dev server, file watcher, live reload
 - [x] **M3** CommonMark hardening, conformance score
 - [x] **M4** syntax highlighting, front-matter, navigation
-- [ ] **M5** search index
+- [x] **M5** search index
 - [ ] **M6** fuzzing, benchmarks, documentation
 
 ## Honest limits
@@ -144,6 +144,15 @@ Written as they become true, not at the end. So far:
 - **Terminal width is read from `COLUMNS`**, falling back to 80, because Go
   cannot ask a terminal how wide it is without a dependency. Resize a window
   without your shell updating `COLUMNS` and wrapping will be wrong.
+- **Search has no stemming**: "parsing" does not match "parsed" unless one is a
+  prefix of the other. Prefix matching scans the term list, which is fine for a
+  documentation corpus and would not be for a hundred thousand terms.
+- **The whole search index is downloaded on first search** — 7.8KB for this
+  project's own docs, growing linearly with the corpus.
+- **Tokens shorter than two characters are dropped**, so `C++` and `C#` are not
+  searchable.
+- The search index is fetched from an absolute `/search-index.json`, so a site
+  served from a subdirectory will not find it.
 - **Display width is approximated.** Wide characters and combining marks are
   handled by range checks rather than the Unicode width tables, so some emoji
   sequences and rare scripts will misalign.

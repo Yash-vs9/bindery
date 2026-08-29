@@ -385,3 +385,49 @@ It is an approximation of the Unicode width tables, not those tables. It will be
 wrong for some emoji sequences and rare scripts. Being approximately right
 without a dependency beats being exactly right with one, but the approximation
 is declared rather than hidden.
+
+### Full-text search
+**Instead of** `lunr.js` / `fuse.js` / `flexsearch` / `algolia`
+**I used** an inverted index in `search.go` and about a hundred lines of my own
+JavaScript in `theme.go`.
+
+Sections, not pages, are the unit: a heading and the prose beneath it. Results
+then deep-link to an anchor instead of dumping the reader at the top of a long
+page, and ranking sharpens, because a match in a short section counts for more
+than the same match in a long one. Code blocks are indexed deliberately — in
+documentation the identifier someone is hunting for is often only in an example.
+
+Ranking is BM25 with the usual k1=1.2 and b=0.75, computed in the browser from
+the term frequencies and document lengths carried in the index. The Go side
+implements the same formula, so ranking is asserted in a test rather than judged
+by eye.
+
+**The risk worth naming** is that the tokeniser exists twice, in Go and in
+JavaScript, and drift between them means queries silently return nothing — a bug
+that looks like an empty index rather than a broken one. Two things guard it.
+The stop-word list is *generated into the JavaScript from the Go map*, so that
+half has exactly one source of truth. And both implementations were run against
+the same thirteen fixtures, including CJK, emoji and `C++`, and agreed on every
+one.
+
+**Cost:** the whole index is downloaded on first search — 7.8KB for this
+project's own documentation, and linear in corpus size. No stemming, so
+"parsing" does not match "parsed" unless one is a prefix of the other. Prefix
+matching scans the term list, which is fine at this scale and would not be at a
+hundred thousand terms.
+
+### Deterministic JSON — a v1/v2 difference that breaks reproducible builds
+**Instead of** assuming `encoding/json/v2` behaves like `encoding/json`
+**I used** `json.Deterministic(true)`.
+
+Worth recording as a finding rather than a substitution. `encoding/json` sorted
+map keys when marshalling. `encoding/json/v2` does not: it emits them in Go's
+deliberately randomised map iteration order. The search index is a map of terms
+to postings, so without this option two builds of identical source produce
+different bytes — and the reproducible-build claim quietly stops being true
+while still passing a check that only hashes the binary.
+
+It was caught by `TestSearchIndexIsDeterministic`, which marshals the same index
+nine times and compares. It failed on the first run. `make verify` now builds
+the *site* twice and diffs the trees as well as hashing the binary, because the
+binary being reproducible turned out not to imply the output was.

@@ -78,6 +78,15 @@ verify: build
 	    echo; \
 	    echo "--- 8. reproducible build ---"; \
 	    $(MAKE) --no-print-directory repro; \
+	    echo; \
+	    echo "--- 9. reproducible site output ---"; \
+	    rm -rf bin/site-a bin/site-b; \
+	    ./$(BIN) build docs --out bin/site-a >/dev/null; \
+	    ./$(BIN) build docs --out bin/site-b >/dev/null; \
+	    if diff -r bin/site-a bin/site-b >/dev/null; then \
+	    	echo "REPRODUCIBLE: two site builds, identical trees"; \
+	    	shasum -a 256 bin/site-a/search-index.json; \
+	    else echo "SITE OUTPUT NOT REPRODUCIBLE"; exit 1; fi; \
 	} 2>&1 | tee deps-proof.txt
 
 clean:
