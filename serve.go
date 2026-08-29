@@ -56,7 +56,7 @@ type Server struct {
 
 // NewServer loads the site and prepares to serve it.
 func NewServer(root string) (*Server, error) {
-	site, err := LoadSite(root)
+	site, err := LoadSite(root, true)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (s *Server) Site() *Site {
 // one file should not blank the browser, it should be reported and ignored until
 // the file is saved again.
 func (s *Server) Rebuild() error {
-	site, err := LoadSite(s.root)
+	site, err := LoadSite(s.root, true)
 	if err != nil {
 		return err
 	}

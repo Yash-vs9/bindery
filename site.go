@@ -26,6 +26,11 @@ type Page struct {
 	Title      string
 	Doc        *Document
 	Body       string // rendered HTML fragment
+	Headings   []Heading
+
+	Meta  map[string]any // front matter, if any
+	Order int            // "order:" in front matter; sorts the navigation
+	Draft bool           // "draft: true"; served by dev, omitted by build
 }
 
 // Site is a parsed directory of Markdown.
@@ -39,7 +44,7 @@ type Site struct {
 // Ordering is deterministic: WalkDir visits lexically, and the navigation is
 // sorted explicitly afterwards. That matters for the reproducible-build claim,
 // which would be worthless if page order depended on the filesystem.
-func LoadSite(root string) (*Site, error) {
+func LoadSite(root string, includeDrafts bool) (*Site, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, err
@@ -74,7 +79,16 @@ func LoadSite(root string) (*Site, error) {
 		if err != nil {
 			return err
 		}
-		site.Pages = append(site.Pages, newPage(p, filepath.ToSlash(rel), string(src)))
+		page, err := newPage(p, filepath.ToSlash(rel), string(src))
+		if err != nil {
+			// Name the file. A front-matter error carries a line and column,
+			// which are useless without knowing which file they are in.
+			return fmt.Errorf("%s: %w", rel, err)
+		}
+		if page.Draft && !includeDrafts {
+			return nil
+		}
+		site.Pages = append(site.Pages, page)
 		return nil
 	})
 	if err != nil {
@@ -85,11 +99,16 @@ func LoadSite(root string) (*Site, error) {
 	}
 
 	sort.Slice(site.Pages, func(i, j int) bool {
-		// The home page sorts first; everything else alphabetically by URL.
-		if a, b := site.Pages[i].URL == "/index.html", site.Pages[j].URL == "/index.html"; a != b {
-			return a
+		a, b := site.Pages[i], site.Pages[j]
+		// The home page sorts first, then anything with an explicit "order:" in
+		// front matter, then everything else alphabetically by URL.
+		if x, y := a.URL == "/index.html", b.URL == "/index.html"; x != y {
+			return x
 		}
-		return site.Pages[i].URL < site.Pages[j].URL
+		if a.Order != b.Order {
+			return a.Order < b.Order
+		}
+		return a.URL < b.URL
 	})
 	return site, nil
 }
@@ -99,9 +118,13 @@ func isMarkdown(name string) bool {
 	return ext == ".md" || ext == ".markdown"
 }
 
-// newPage parses one source file and derives its URL and title.
-func newPage(sourcePath, rel, src string) *Page {
-	doc := Parse(src)
+// newPage parses one source file and derives its URL, title and metadata.
+func newPage(sourcePath, rel, src string) (*Page, error) {
+	meta, body, err := splitFrontMatter(src)
+	if err != nil {
+		return nil, err
+	}
+	doc := Parse(body)
 
 	// README.md and index.md both become the directory's index page, which is
 	// what makes bindery work on a repository you did not write for it.
@@ -112,15 +135,32 @@ func newPage(sourcePath, rel, src string) *Page {
 		out = dir + "index.html"
 	}
 
+	// Headings are extracted first: doing so assigns the slugs that the
+	// renderer emits as heading anchors, so the order is not incidental.
+	headings := extractHeadings(doc)
+
+	title := pageTitle(doc, stem)
+	if fromMeta, ok := stringValue(meta, "title"); ok && fromMeta != "" {
+		title = fromMeta
+	}
+
+	// Ordering defaults to a large number so that pages without an explicit
+	// "order:" sort after those with one, rather than jumping to the front.
+	const unordered = 1 << 30
+
 	return &Page{
 		SourcePath: sourcePath,
 		RelPath:    rel,
 		URL:        "/" + out,
 		OutPath:    out,
-		Title:      pageTitle(doc, stem),
+		Title:      title,
 		Doc:        doc,
-		Body:       RenderHTML(doc),
-	}
+		Headings:   headings,
+		Meta:       meta,
+		Order:      intValue(meta, "order", unordered),
+		Draft:      boolValue(meta, "draft", false),
+		Body:       RenderHTMLWith(doc, RenderOptions{Highlight: true, HeadingIDs: true}),
+	}, nil
 }
 
 // pageTitle returns the first level-one heading, falling back to the filename

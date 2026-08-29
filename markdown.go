@@ -60,6 +60,12 @@ type Block struct {
 	Level int    // Heading: 1-6
 	Info  string // CodeFenced: the info string after the opening fence
 
+	// slug is the anchor assigned to a heading by extractHeadings. It is
+	// unexported because it is derived rather than parsed, and so that the AST
+	// that "bindery render --format=json" prints stays a description of the
+	// source rather than of a particular rendering of it.
+	slug string
+
 	// List and ListItem.
 	Ordered  bool // List: 1. rather than -
 	Start    int  // List: the number the first item carries

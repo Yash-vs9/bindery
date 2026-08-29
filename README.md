@@ -76,7 +76,7 @@ Under construction during the event window. Milestones, in order:
 - [x] **M1** Markdown → HTML, theme, `build`
 - [x] **M2** dev server, file watcher, live reload
 - [x] **M3** CommonMark hardening, conformance score
-- [ ] **M4** syntax highlighting, front-matter, navigation
+- [x] **M4** syntax highlighting, front-matter, navigation
 - [ ] **M5** search index
 - [ ] **M6** fuzzing, benchmarks, documentation
 
@@ -98,6 +98,19 @@ Written as they become true, not at the end. So far:
   it is not a fast parser and is not claimed to be.
 - No tables, task lists, strikethrough, footnotes or autolink extensions.
   bindery implements CommonMark, not GitHub Flavored Markdown.
+- **Front matter is a documented YAML subset**, not YAML: block mappings,
+  sequences, scalars and comments. Anchors, aliases, tags, flow style, block
+  scalars and multi-document streams are rejected with a line and column rather
+  than misread. An unquoted `no` is the string `"no"`, not `false`.
+- **Syntax highlighting is lexical, not grammatical.** Go, JavaScript,
+  TypeScript, Python, shell, JSON and diff are described; anything else gets a
+  generic lexer that handles quotes, digits and comments.
+- **Terminal width is read from `COLUMNS`**, falling back to 80, because Go
+  cannot ask a terminal how wide it is without a dependency. Resize a window
+  without your shell updating `COLUMNS` and wrapping will be wrong.
+- **Display width is approximated.** Wide characters and combining marks are
+  handled by range checks rather than the Unicode width tables, so some emoji
+  sequences and rare scripts will misalign.
 - `render --format=ansi` awaits the terminal renderer (M4); it exits 1 and says
   so rather than pretending to work.
 - The file watcher **polls** every 250ms, because Go's standard library has no

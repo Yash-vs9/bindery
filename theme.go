@@ -37,6 +37,7 @@ func renderPage(s *Site, p *Page, live bool) (string, error) {
 		SiteName string
 		Body     template.HTML
 		Nav      []NavEntry
+		TOC      []Heading
 		Live     bool
 		Style    template.CSS
 		Script   template.JS
@@ -45,6 +46,7 @@ func renderPage(s *Site, p *Page, live bool) (string, error) {
 		SiteName: "docs",
 		Body:     template.HTML(p.Body),
 		Nav:      s.Nav(p.URL),
+		TOC:      TOC(p.Headings),
 		Live:     live,
 		Style:    template.CSS(pageCSS),
 		Script:   template.JS(pageScript),
@@ -68,7 +70,11 @@ const pageHTML = `<!DOCTYPE html>
 <nav class="sidebar">
 <div class="brand">{{.SiteName}}</div>
 <ul>
-{{range .Nav}}<li><a href="{{.URL}}"{{if .Current}} class="current"{{end}}>{{.Title}}</a></li>
+{{range .Nav}}<li><a href="{{.URL}}"{{if .Current}} class="current"{{end}}>{{.Title}}</a>
+{{if .Current}}{{if $.TOC}}<ul class="toc">
+{{range $.TOC}}<li class="toc-{{.Level}}"><a href="#{{.Slug}}">{{.Text}}</a></li>
+{{end}}</ul>
+{{end}}{{end}}</li>
 {{end}}</ul>
 </nav>
 <main>
@@ -91,6 +97,14 @@ const pageCSS = `
   --accent: #2f5fd0;
   --code-bg: #f5f5f7;
   --sidebar-bg: #fafafa;
+  --hl-kw: #8f3fbf;
+  --hl-str: #197a3d;
+  --hl-num: #b3541e;
+  --hl-com: #7a7a80;
+  --hl-typ: #1b6f8c;
+  --hl-fn: #2f5fd0;
+  --hl-ins: #197a3d;
+  --hl-del: #b3261e;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -101,6 +115,14 @@ const pageCSS = `
     --accent: #7aa2f7;
     --code-bg: #1e1f24;
     --sidebar-bg: #121316;
+    --hl-kw: #c792ea;
+    --hl-str: #8bd49c;
+    --hl-num: #f78c6c;
+    --hl-com: #6b6f7a;
+    --hl-typ: #7fd1e0;
+    --hl-fn: #82aaff;
+    --hl-ins: #8bd49c;
+    --hl-del: #ff8a80;
   }
 }
 * { box-sizing: border-box; }
@@ -138,6 +160,11 @@ body {
 }
 .sidebar a:hover { background: var(--code-bg); }
 .sidebar a.current { color: var(--accent); font-weight: 600; }
+.toc { margin: .1rem 0 .5rem; padding-left: .55rem; border-left: 1px solid var(--rule); }
+.toc a { font-size: .87rem; color: var(--muted); padding: .18rem .5rem; }
+.toc a:hover { color: var(--fg); }
+.toc-3 a { padding-left: 1.1rem; font-size: .84rem; }
+h2, h3 { scroll-margin-top: 1rem; }
 main { flex: 1; min-width: 0; display: flex; justify-content: center; }
 article { width: 100%; max-width: 44rem; padding: 2.5rem 2rem 6rem; }
 article > :first-child { margin-top: 0; }
@@ -162,6 +189,14 @@ pre {
   margin: 0 0 1.25rem;
 }
 pre code { background: none; padding: 0; font-size: .85rem; line-height: 1.55; }
+.hl-kw  { color: var(--hl-kw); }
+.hl-str { color: var(--hl-str); }
+.hl-num { color: var(--hl-num); }
+.hl-com { color: var(--hl-com); font-style: italic; }
+.hl-typ { color: var(--hl-typ); }
+.hl-fn  { color: var(--hl-fn); }
+.hl-ins { color: var(--hl-ins); }
+.hl-del { color: var(--hl-del); }
 blockquote {
   border-left: 3px solid var(--rule);
   padding-left: 1rem;

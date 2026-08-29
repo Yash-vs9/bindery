@@ -1,3 +1,7 @@
+---
+title: bindery
+order: 1
+---
 # bindery
 
 A folder of Markdown becomes a searchable documentation site with live reload.

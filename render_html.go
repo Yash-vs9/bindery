@@ -20,14 +20,28 @@ import (
 // paragraph produces "<li>foo", while the same <li> followed by a loose
 // paragraph produces "<li>\n<p>foo</p>". Two cases, one rule, no special-casing.
 
+// RenderOptions turns on rendering that goes beyond the specification.
+//
+// Highlighting is an option rather than the default for one reason: the
+// conformance suite compares against reference output, which is plain escaped
+// text inside <pre><code>. Colouring code by default would mean either failing
+// 29 fenced-code examples or measuring conformance against a renderer nobody
+// uses. So "bindery spec" renders with the zero value and the site build turns
+// highlighting on, and the reported score stays a claim about the parser.
+type RenderOptions struct {
+	Highlight  bool
+	HeadingIDs bool
+}
+
 // htmlWriter is a string builder that tracks whether it sits at line start.
 type htmlWriter struct {
 	sb          strings.Builder
 	atLineStart bool
+	opts        RenderOptions
 }
 
-func newHTMLWriter() *htmlWriter {
-	return &htmlWriter{atLineStart: true}
+func newHTMLWriter(opts RenderOptions) *htmlWriter {
+	return &htmlWriter{atLineStart: true, opts: opts}
 }
 
 func (w *htmlWriter) write(s string) {
@@ -47,9 +61,14 @@ func (w *htmlWriter) cr() {
 
 func (w *htmlWriter) String() string { return w.sb.String() }
 
-// RenderHTML renders a parsed document as an HTML fragment.
+// RenderHTML renders a parsed document as a specification-shaped HTML fragment.
 func RenderHTML(d *Document) string {
-	w := newHTMLWriter()
+	return RenderHTMLWith(d, RenderOptions{})
+}
+
+// RenderHTMLWith renders a parsed document with the given options.
+func RenderHTMLWith(d *Document, opts RenderOptions) string {
+	w := newHTMLWriter(opts)
 	renderBlock(w, d.Root)
 	return w.String()
 }
@@ -82,7 +101,11 @@ func renderBlock(w *htmlWriter, b *Block) {
 	case KindHeading:
 		level := strconv.Itoa(b.Level)
 		w.cr()
-		w.write("<h" + level + ">")
+		if w.opts.HeadingIDs && b.slug != "" {
+			w.write("<h" + level + ` id="` + escapeHTML(b.slug) + `">`)
+		} else {
+			w.write("<h" + level + ">")
+		}
 		renderInlines(w, b.Inlines)
 		w.write("</h" + level + ">")
 		w.cr()
@@ -100,7 +123,11 @@ func renderBlock(w *htmlWriter, b *Block) {
 			w.write(` class="language-` + escapeHTML(unescapeBackslashes(lang)) + `"`)
 		}
 		w.write(">")
-		w.write(escapeHTML(b.Text()))
+		if lang := firstWord(b.Info); w.opts.Highlight && lang != "" {
+			w.write(highlightHTML(b.Text(), unescapeBackslashes(lang)))
+		} else {
+			w.write(escapeHTML(b.Text()))
+		}
 		w.write("</code></pre>")
 		w.cr()
 

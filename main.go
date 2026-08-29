@@ -237,7 +237,7 @@ func cmdBuild(args []string, stdout, stderr io.Writer) error {
 	}
 
 	start := time.Now()
-	site, err := LoadSite(dirArg(fs))
+	site, err := LoadSite(dirArg(fs), false)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func cmdRender(args []string, stdout, stderr io.Writer) error {
 		}
 		fmt.Fprintf(stdout, "%s\n", b)
 	case "ansi":
-		return errNotImplemented{cmd: "render --format=ansi", milestone: "M4"}
+		fmt.Fprint(stdout, RenderANSI(doc, terminalWidth(), colorEnabled(stdout)))
 	default:
 		fmt.Fprintf(stderr, "bindery render: unknown format %q\n", *format)
 		return errUsage

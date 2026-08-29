@@ -1,5 +1,5 @@
 === bindery dependency proof ===
-date (UTC): 2026-08-29 06:03:21Z
+date (UTC): 2026-08-29 06:19:46Z
 toolchain:  go version go1.27.0 darwin/arm64
 
 --- 1. go.mod: no require block ---
@@ -29,6 +29,10 @@ bin/bindery: go1.27.0
      804 block.go
      179 block_test.go
      277 emphasis.go
+     413 frontmatter.go
+     146 frontmatter_test.go
+     323 highlight.go
+     124 highlight_test.go
      111 html_block.go
       89 html_block_test.go
      371 inline.go
@@ -40,30 +44,32 @@ bin/bindery: go1.27.0
      295 livereload.go
      340 main.go
      131 main_test.go
-     183 markdown.go
-     284 render_html.go
+     189 markdown.go
+     258 render_ansi.go
+     311 render_html.go
      184 scan.go
      284 serve.go
      304 serve_test.go
-     191 site.go
+     231 site.go
      158 spec.go
      125 spec_test.go
       62 term.go
-     200 theme.go
+     235 theme.go
+     116 toc.go
      142 watch.go
      193 watch_test.go
-    5874 total
+    7362 total
 
 --- 6. formatting and vet ---
 gofmt: clean
 vet: clean
 
 --- 7. tests ---
-ok  	bindery	0.530s
+ok  	bindery	0.805s
 
 --- 8. reproducible build ---
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-a/bindery .
 CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o bin/repro-b/bindery .
-ba891a164a6b598f237797571b439a30bd69404ca9311784e122590e4a65241b  bin/repro-a/bindery
-ba891a164a6b598f237797571b439a30bd69404ca9311784e122590e4a65241b  bin/repro-b/bindery
+d26000ddbeab1561bbc6f25aec97ace736ef1ef6d1dd23d5f3c00db3ec89c1ba  bin/repro-a/bindery
+d26000ddbeab1561bbc6f25aec97ace736ef1ef6d1dd23d5f3c00db3ec89c1ba  bin/repro-b/bindery
 REPRODUCIBLE: two builds, identical bytes

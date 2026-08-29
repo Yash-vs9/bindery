@@ -295,3 +295,93 @@ is tuning to the suite rather than to the specification, and it would make the
 start failing if the standard library ever closes it.
 
 **Cost:** one conformance example, and an honest note instead of a workaround.
+
+### Syntax highlighting
+**Instead of** `highlight.js` / `prism` / `chroma`
+**I used** one table-driven lexer in `highlight.go`.
+
+Rather than a state machine per language, there is a single scanner driven by a
+`langSpec`: comment markers, string delimiters with their escaping and
+multiline rules, and keyword sets. Adding a language means writing down its
+tables. Go, JavaScript/TypeScript, Python, shell, JSON and diff are described,
+and an unknown language falls back to a generic description that gets quotes,
+digits and comments right — usually better than no colour at all.
+
+The invariant that matters is tested directly: stripping the emitted tags must
+return the input unchanged. `TestHighlightPreservesText` and a fuzz target
+assert it across every language, so highlighting can never silently corrupt the
+code it colours.
+
+**Cost:** lexical only, with no parser and no symbol table, so a word that is a
+keyword anywhere is a keyword everywhere. That is the same trade every
+regex-based highlighter makes, and it is invisible at the size of a
+documentation code sample.
+
+### YAML front matter
+**Instead of** `js-yaml` / `gopkg.in/yaml.v3`
+**I used** a documented subset in `frontmatter.go`.
+
+Go's standard library has no YAML, and full YAML is a bigger project than the
+Markdown parser: anchors, aliases, tags, merge keys, flow style and five kinds
+of block scalar. What front matter actually needs is block mappings, block
+sequences, scalars and comments, so that is what is implemented — and anything
+outside it is a clear error with a line and column rather than a silent
+misreading.
+
+One deliberate deviation from YAML 1.1: an unquoted `no` is the string `"no"`,
+not the boolean `false`. The Norway problem is the most common way configuration
+files quietly corrupt data, and only `true` and `false` are booleans here.
+
+The awkward case was telling a forgotten terminator from a document that simply
+opens with a thematic break — both begin `---`. They are separated by whether
+the next content line reads as a mapping entry, which turns a confusing silent
+failure into a positioned error.
+
+**Cost:** no anchors, aliases, tags, flow style, block scalars or multi-document
+streams. All are rejected with an explanation rather than misread.
+
+### Heading anchors
+**Instead of** `github-slugger`
+**I used** `slugify` in `toc.go`.
+
+Letters and digits survive in any script, since `unicode.IsLetter` accepts
+Cyrillic and CJK as readily as ASCII; everything else collapses to a single
+separator. Collisions get a numeric suffix. The slug is stored on the heading
+block when the table of contents is built, so the renderer and the sidebar
+cannot disagree about what an anchor is called — deriving it twice would be one
+derivation too many.
+
+### Terminal Markdown rendering
+**Instead of** `glow` / `glamour` / `mdcat`
+**I used** `render_ansi.go`, a third back end over the same document model.
+
+One parser, three renderers: HTML, terminal and JSON. `bindery render --format
+ansi` reads a Markdown file in the terminal with wrapping, indented code,
+quote bars and styled inlines.
+
+### Terminal width — a gap with no standard-library answer
+**I would have used** `golang.org/x/term`
+**and there is no standard-library answer.**
+
+Go cannot ask a terminal how wide it is. The `TIOCGWINSZ` ioctl is not exposed
+by any standard-library package, and `golang.org/x/term` is a dependency the
+rules do not exempt. So `terminalWidth` reads the `COLUMNS` environment
+variable, which shells export, and falls back to eighty columns.
+
+**Cost:** wrapping is wrong when a window is resized without the shell updating
+`COLUMNS`. That is the honest limit of what the standard library allows.
+
+### Display width — an approximation, declared as one
+**I would have used** `golang.org/x/text/width` (or `go-runewidth`)
+**and there is no standard-library answer.**
+
+A rune is not a column. CJK ideographs and most emoji occupy two columns and
+combining marks occupy none, so wrapping by `utf8.RuneCountInString` misaligns
+anything outside Latin text. `displayWidth` skips ANSI escape sequences, treats
+`unicode.Mn` and `unicode.Me` as zero width, and approximates the East Asian
+Wide and Fullwidth ranges as two.
+
+It is an approximation of the Unicode width tables, not those tables. It will be
+wrong for some emoji sequences and rare scripts. Being approximately right
+without a dependency beats being exactly right with one, but the approximation
+is declared rather than hidden.

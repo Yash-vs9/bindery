@@ -1,3 +1,7 @@
+---
+title: Edge cases
+order: 3
+---
 # Edge cases
 
 The parser is written against the CommonMark specification, which means the
