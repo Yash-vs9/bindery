@@ -311,7 +311,16 @@ func cmdRender(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	doc := Parse(string(src))
+
+	// Front matter is metadata, not content. Without this the delimiters render
+	// as a thematic break and the fields as a setext heading, which is what
+	// "bindery render" did until it was pointed at a file the site build had
+	// been handling correctly all along.
+	_, body, err := splitFrontMatter(string(src))
+	if err != nil {
+		return fmt.Errorf("%s: %w", fs.Arg(0), err)
+	}
+	doc := Parse(body)
 
 	switch *format {
 	case "html":

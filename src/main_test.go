@@ -129,3 +129,47 @@ func TestErrorsGoToStderr(t *testing.T) {
 		t.Errorf("stderr = %q, want it to explain the failure", stderr.String())
 	}
 }
+
+// TestRenderStripsFrontMatter guards a bug the site build never had: "bindery
+// render" parsed the whole file, so front matter appeared in the output as a
+// thematic break followed by a heading.
+func TestRenderStripsFrontMatter(t *testing.T) {
+	dir := t.TempDir()
+	page := filepath.Join(dir, "page.md")
+	writeFile(t, page, "---\ntitle: Meta\norder: 1\n---\n# Real heading\n\nBody.\n")
+
+	for _, format := range []string{"html", "ansi", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := run([]string{"render", page, "--format", format}, &stdout, &stderr); code != exitOK {
+				t.Fatalf("render exited %d: %s", code, stderr.String())
+			}
+			out := stdout.String()
+			if strings.Contains(out, "order") || strings.Contains(out, "title: Meta") {
+				t.Errorf("%s output contains front matter:\n%s", format, out)
+			}
+			if !strings.Contains(strings.ToLower(out), "real heading") {
+				t.Errorf("%s output is missing the document content:\n%s", format, out)
+			}
+		})
+	}
+}
+
+// TestRenderReportsBadFrontMatter checks the error path carries the file name
+// and a position, since a front-matter mistake is otherwise invisible.
+func TestRenderReportsBadFrontMatter(t *testing.T) {
+	dir := t.TempDir()
+	page := filepath.Join(dir, "bad.md")
+	writeFile(t, page, "---\na: [1, 2]\n---\n# X\n")
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"render", page}, &stdout, &stderr); code != exitFailure {
+		t.Fatalf("render exited %d, want %d", code, exitFailure)
+	}
+	msg := stderr.String()
+	for _, want := range []string{"bad.md", "line", "flow style"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q should mention %q", msg, want)
+		}
+	}
+}
