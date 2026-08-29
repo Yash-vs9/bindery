@@ -1,7 +1,15 @@
 # bindery
 
+[![verify](https://github.com/Yash-vs9/bindery/actions/workflows/verify.yml/badge.svg)](https://github.com/Yash-vs9/bindery/actions/workflows/verify.yml)
+
 A folder of Markdown becomes a searchable documentation site with live reload.
 One binary. Zero dependencies.
+
+The badge above is not decoration: it is the dependency proof running on a
+machine neither of us controls, on every push, on Linux, macOS and Windows --
+confirming the manifest is empty, every transitive import is standard library,
+the binary is byte-reproducible, and the full test and fuzz suites pass. Click
+it for the log rather than taking `deps-proof.txt` on trust.
 
 ```
 bindery dev ./docs      # localhost:8080, live reload on save
@@ -67,6 +75,7 @@ bindery/
 ├── README.md            what it does, how to run it, honest limits
 ├── STDLIB.md            every "I would normally import X, instead I used Y"
 ├── Makefile             one command to a runnable artifact
+├── .github/workflows/   CI: runs the proof below on every push
 ├── src/                 the source, all written this weekend
 │   ├── *.go             the program
 │   ├── *_test.go        unit tests, beside the code they test
@@ -118,7 +127,9 @@ make verify         # also writes deps-proof.txt
 ```
 
 `go.mod` has no `require` block, `go list -m all` reports only this module, and
-`go list -deps .` reports standard-library packages only.
+`go list -deps .` reports standard-library packages only. The same checks run
+in CI on every push, on Linux, macOS and Windows -- see the badge above, or
+`.github/workflows/verify.yml`.
 
 ## Reproducible build
 

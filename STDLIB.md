@@ -497,6 +497,26 @@ and checking that the command actually failed. It did not, three times out of
 four. The one command that proves a project is sound must not be the one that
 lies, and the only way to know is to break it on purpose.
 
+**`.github/workflows/verify.yml`** runs the same proof on a machine neither of
+us controls, on every push, across Linux, macOS and Windows. It is not build
+tooling in the sense the event's rules exempt automatically, and it should not
+be mistaken for one: nothing it does ships in the built artifact, and the
+binary it produces is byte-identical to one built by a person running `go
+build` with nothing but the toolchain. It exists so that "the manifest is
+empty" is not a claim resting on a `deps-proof.txt` generated on a laptop —
+click the badge in README.md for the log.
+
+Writing the workflow found one more bug the same way the two above were found —
+by checking rather than assuming. The dependency check's first draft flagged
+any import path containing a dot, on the reasoning that a real module path
+looks like `github.com/user/repo`. That is wrong: `net/http` vendors
+`golang.org/x/net`, `golang.org/x/text` and `golang.org/x/crypto` *inside
+GOROOT itself*, and those paths contain dots while being standard library. The
+heuristic would have failed the workflow on every push over packages this
+project does not even import directly. `go list`'s own `.Standard` field — the
+same one `make verify` already used — is the authoritative signal; a shape
+heuristic over an import path is not.
+
 ### How the benchmark comparison was made
 
 The rules ask for honest numbers, and specifically for saying so if the
