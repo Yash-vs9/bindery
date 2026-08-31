@@ -36,6 +36,32 @@ confirming the manifest is empty, every transitive import is standard library,
 the binary is byte-reproducible, and the full test and fuzz suites pass. Click
 it for the log rather than taking `deps-proof.txt` on trust.
 
+## Bonus challenges
+
+Three of the four, targeted and verified rather than claimed.
+
+- **Reproducible Build.** `make repro` builds the binary twice and compares
+  the bytes; `make verify` does the same for the *site* this binary produces,
+  because a reproducible binary that emits non-deterministic output would be
+  a hollow claim. Both pass. See "Reproducible build" below and the CI badge
+  above, which runs both checks on every push.
+- **Package Killer.** Primary kill: a hand-written CommonMark parser passing
+  **652/652** official spec examples, replacing `marked` / `markdown-it` /
+  `goldmark`, benchmarked head to head against goldmark with real numbers.
+  Secondary kill: `chalk`, 319.8M weekly downloads, verified against the
+  event's own cheat-sheet. The explicit claim, cross-referenced to the full
+  entries, is at the top of `STDLIB.md`.
+- **STDLIB Log.** `STDLIB.md` documents **31 substitutions**, each with what
+  it replaced, what it cost, and — for the few genuine standard-library gaps
+  like terminal width and full Unicode case folding — an honest "there is no
+  stdlib answer" rather than a manufactured one.
+
+**Single File was not attempted, on purpose.** The project is a CommonMark
+parser, a PDF writer, a WebSocket, a search engine and a diagram layout
+engine; one file holding all of it would satisfy the bonus's letter while
+failing the point of it, "a file a person could read top to bottom." The
+trade and the reasoning are in "Repository layout" below.
+
 ## Conformance
 
 **652 of 652 CommonMark examples pass — 100.0%**, against specification 0.31.2,
