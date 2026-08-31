@@ -741,3 +741,36 @@ a simplification of CommonMark's own code-span rule (a variable-length
 closing run) rather than a full implementation of it. No nested tables, no
 column spans, no GFM's other extensions (task lists, strikethrough,
 footnotes, autolinks).
+
+### A false positive in the test suite itself, found by CI
+
+Worth recording because it is a different kind of finding than the rest of
+this file: not a stdlib substitution, but a bug in the verification code that
+checks the substitutions.
+
+`FuzzHTMLEscaping` asserts that no attribute bindery renders can contain a raw
+`<` or `>` -- the property that stops user input from escaping an attribute it
+was placed in. Its first version scanned the *entire* rendered page for
+anything shaped like `word="value"`. CI's fuzz smoke test found an input that
+broke it: `<A A="<">`.
+
+That is not an injection. It is a raw HTML tag, and CommonMark requires raw
+HTML to pass through completely unescaped -- that is the feature working
+correctly, the same as it does in every other conformant Markdown renderer,
+and the same behaviour the 652/652 conformance number already certifies. The
+test's check did not distinguish attributes **bindery constructs** (`href`,
+`src`, `title`, `alt`, `class` -- see `render_html.go`) from attributes an
+author wrote directly into their own document, which the spec says must be
+reproduced verbatim.
+
+The fix narrows the pattern to exactly those five bindery-constructed
+attributes. Verified two ways, not just by re-running the failing case:
+`escapeURL` was temporarily disabled to confirm the narrowed check still
+catches a genuine leaked `<` when escaping is actually broken, then restored.
+The failing input is now a permanent seed, so this exact case runs on every
+`go test` from here on rather than depending on fuzzing to rediscover it.
+
+The honest framing: this was CI doing its job. A property test's own
+assertion can be wrong in exactly the way the code it tests can be wrong, and
+the fix here was to make the test's claim match what the specification
+actually requires, not to make the failure go away.

@@ -15,8 +15,22 @@ import (
 //
 // These targets assert properties that would matter if they broke.
 
-// attrPattern finds the value of every double-quoted HTML attribute emitted.
-var attrPattern = regexp.MustCompile(`\s\w+="([^"]*)"`)
+// attrPattern finds the value of every attribute bindery itself constructs
+// from parsed data: href and src (link and image destinations), title and alt
+// (link/image titles and alt text), and class (the syntax-highlighting and
+// diagram language classes). These are the only attributes built by
+// interpolating untrusted input into a string -- see render_html.go -- and so
+// the only ones where an escaping bug would be a real injection vector.
+//
+// It deliberately does not match every attribute-shaped substring in the
+// output. The first version did, and failed on "<A A="<">": a raw HTML tag,
+// which CommonMark requires passing through completely unescaped -- that is
+// what "raw HTML" support means, the same as any other conformant renderer.
+// The test was flagging correct, spec-mandated behaviour as a bug. Scoping
+// the pattern to bindery's own constructed attributes keeps the check honest:
+// it still catches a real escaping regression in href/src/title/alt/class,
+// and stops objecting to content the spec says must be left alone.
+var attrPattern = regexp.MustCompile(`\s(?:href|src|title|alt|class)="([^"]*)"`)
 
 // FuzzHTMLEscaping asserts the property that keeps rendered Markdown safe to
 // serve: no text from the input may escape the construct it was placed in.
@@ -35,6 +49,14 @@ func FuzzHTMLEscaping(f *testing.F) {
 		"[a](<b\"c>)",
 		"# <script>alert(1)</script>",
 		"`<script>`",
+		// Raw HTML with an attribute value that itself contains an angle
+		// bracket. CommonMark requires this pass through completely
+		// unescaped -- that is what raw HTML support means -- and the first
+		// version of this test wrongly flagged it as an injection, because
+		// its check did not distinguish attributes bindery constructs from
+		// author-supplied HTML the spec says must be left alone. Found by
+		// the CI fuzz smoke test, kept here as a permanent seed.
+		`<A A="<">`,
 	} {
 		f.Add(seed)
 	}
@@ -46,13 +68,13 @@ func FuzzHTMLEscaping(f *testing.F) {
 			t.Fatalf("valid UTF-8 input produced invalid UTF-8 output\ninput: %q", src)
 		}
 
-		// Every attribute value must be free of raw quotation marks, which is
-		// what the regexp above already guarantees by construction -- so the
-		// real check is that the tags themselves are well formed: no attribute
-		// value may contain a raw "<" or ">" either.
+		// Every bindery-constructed attribute value must be free of raw
+		// quotation marks, which the regexp above already guarantees by
+		// construction, and free of raw angle brackets, which would mean input
+		// escaped the attribute it was placed in.
 		for _, match := range attrPattern.FindAllStringSubmatch(out, -1) {
 			if strings.ContainsAny(match[1], "<>") {
-				t.Fatalf("attribute value contains a raw angle bracket: %q\ninput: %q\noutput: %q",
+				t.Fatalf("bindery-constructed attribute contains a raw angle bracket: %q\ninput: %q\noutput: %q",
 					match[1], src, out)
 			}
 		}
