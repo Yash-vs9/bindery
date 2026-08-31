@@ -8,6 +8,33 @@ Download figures are weekly npm downloads, checked against npmjs.com on the date
 in the row. Where I have not checked a figure yet the row says so rather than
 guessing.
 
+## Package Killer claim
+
+This is the explicit claim for the Package Killer bonus, stated up front rather
+than left for a judge to infer from the full list below.
+
+**Primary kill: `marked` / `markdown-it` / `goldmark`.** A hand-written
+CommonMark parser (`block.go`, `scan.go`, `inline.go`, `emphasis.go`,
+`link.go`, `render_html.go`) passing **652 of 652** official spec examples,
+100.0%, compared byte for byte against the reference implementation, not
+"CommonMark-inspired." Benchmarked head to head against goldmark, the parser
+this replaces, in a throwaway module outside this repository: bindery is 1.13x
+to 1.55x faster on two independent corpora, and meaningfully hungrier for
+memory on realistic prose -- both results reported with their caveats in
+README.md's "Numbers" section, including that goldmark passes 652/652 too and
+implements extensions bindery does not. Full entry: "Markdown parsing," below.
+Benchmark method: "How the benchmark comparison was made," below.
+
+**Secondary kill: `chalk`**, 319.8M weekly downloads, the figure verified
+against the event's own cheat-sheet rather than estimated. Replaced by six ANSI
+constants and `NO_COLOR`/TTY handling in `term.go`. Full entry: "Terminal
+colour," below.
+
+Further candidates documented in the same style further down: `chokidar`,
+`js-yaml`, `highlight.js`, `gorilla/websocket`, `lunr.js`/`fuse.js`. Each entry
+states what it replaces, what it cost, and where the standard library
+genuinely has no answer at all.
+
 ## Code and data I did not write this weekend
 
 Listed first, because it matters most.
